@@ -39,7 +39,7 @@ export interface ScreenState {
   /** In hacker mode: first row of the output zone (rain fills rows 1..rainTop-1) */
   rainTop: number;
   /** Subagent overlay: 0 when hidden, 6 when visible */
-  subAgentOverlayRows: number;
+  overlayRows: number;
   /** Current workspace: main (coding) or idea (idea capture) */
   workspace: 'main' | 'idea';
   /** Input buffer preserved when switching to idea workspace */
@@ -60,7 +60,6 @@ export class ScreenManager {
   // Thinking动画状态
   private thinkingAnimationFrame: number = 0;
   private thinkingAnimationTimer: NodeJS.Timeout | null = null;
-  private subAgentRefreshTimer: NodeJS.Timeout | null = null;
   private thinkingAnimationStopped: boolean = false;
   private thinkingAnimationFrames: string[] = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
@@ -87,7 +86,7 @@ export class ScreenManager {
       matrixRain: null,
       hackerMode: false,
       rainTop: 1,
-      subAgentOverlayRows: 0,
+      overlayRows: 0,
       workspace: 'main',
       ideaInputBuffer: [''],
       ideaCursorCol: 0,
@@ -111,7 +110,7 @@ export class ScreenManager {
     this.state.terminalWidth = newWidth;
     this.state.inputLines = this.calcInputLines();
     this.state.statusRow = this.state.terminalHeight - this.state.inputLines - 1;
-    this.state.scrollBottom = this.state.statusRow - 1 - this.state.subAgentOverlayRows;
+    this.state.scrollBottom = this.state.statusRow - 1 - this.state.overlayRows;
 
     // Hacker mode: full-screen rain, no scroll regions
     if (this.state.hackerMode) {
@@ -198,7 +197,7 @@ export class ScreenManager {
       const oldScrollBottom = this.state.scrollBottom;
       this.state.inputLines = newLines;
       this.state.statusRow = this.state.terminalHeight - newLines - 1;
-      this.state.scrollBottom = this.state.statusRow - 1 - this.state.subAgentOverlayRows;
+      this.state.scrollBottom = this.state.statusRow - 1 - this.state.overlayRows;
 
       if (oldStatusRow > this.state.statusRow) {
         for (let row = this.state.statusRow + 1; row <= oldStatusRow; row++) {
@@ -508,14 +507,14 @@ export class ScreenManager {
     this.state.cursorInScrollArea = false;
   }
 
-  // ── Subagent overlay ──────────────────────────────────────────────────
+  // ── Overlay ──────────────────────────────────────────────────
 
-  /** Reserve/free 6 rows for subagent overlay between scrollback and status bar */
-  setSubAgentOverlay(visible: boolean, rows: number = 6): void {
+  /** Reserve/free rows for overlay between scrollback and status bar (idea workspace) */
+  setOverlay(visible: boolean, rows: number = 6): void {
     const newRows = visible ? rows : 0;
-    if (this.state.subAgentOverlayRows === newRows) return;
+    if (this.state.overlayRows === newRows) return;
 
-    this.state.subAgentOverlayRows = newRows;
+    this.state.overlayRows = newRows;
     this.state.scrollBottom = this.state.statusRow - 1 - newRows;
 
     // Clear overlay area if hiding
@@ -535,16 +534,11 @@ export class ScreenManager {
   }
 
   /** Write lines directly to overlay region — no scrollback buffer, no table state machine */
-  writeSubAgentOverlay(lines: string[]): void {
-    if (this.state.subAgentOverlayRows === 0) return;
-    this.writeOverlay(lines);
-  }
-
-  /** Write lines to overlay region, generic — used by both subagent and idea overlays */
-  private writeOverlay(lines: string[]): void {
+  writeOverlay(lines: string[]): void {
+    if (this.state.overlayRows === 0) return;
     const startRow = this.state.scrollBottom + 1;
     writeStdout(`${ESC}[?25l`);
-    for (let i = 0; i < this.state.subAgentOverlayRows && i < lines.length; i++) {
+    for (let i = 0; i < this.state.overlayRows && i < lines.length; i++) {
       writeStdout(`${ESC}[${startRow + i};1H${ESC}[2K${lines[i]}`);
     }
   }
@@ -562,14 +556,11 @@ export class ScreenManager {
       ? [...this.state.ideaInputBuffer] : [''];
     this.state.cursorCol = this.state.ideaCursorCol;
 
-    // Stop subagent refresh if running (idea overlay takes over)
-    this.stopSubAgentRefresh();
-
     this.state.workspace = 'idea';
 
     // Reserve overlay space (max 7 rows: 1 top + 1 title + 4 ideas + 1 help + 1 bottom,
     // but 4 rows for empty state). Use fixed 7 to avoid re-layout on every idea change.
-    this.setSubAgentOverlay(true, 7);
+    this.setOverlay(true, 7);
 
     // Write idea overlay content
     if (this.state.ideaOverlayRenderFn) {
@@ -598,8 +589,8 @@ export class ScreenManager {
 
     this.state.workspace = 'main';
 
-    // Remove overlay, restore scroll region — same pattern as subagent overlay
-    this.setSubAgentOverlay(false);
+    // Remove overlay, restore scroll region
+    this.setOverlay(false);
 
     if (this.state.onWorkspaceChange) this.state.onWorkspaceChange();
     this.drawStatus();
@@ -618,26 +609,6 @@ export class ScreenManager {
 
   isInIdeaWorkspace(): boolean {
     return this.state.workspace === 'idea';
-  }
-
-  /** Start periodic overlay refresh. Stops automatically when renderFn returns empty array. */
-  startSubAgentRefresh(intervalMs: number, renderFn: () => string[]): void {
-    this.stopSubAgentRefresh();
-    this.subAgentRefreshTimer = setInterval(() => {
-      const lines = renderFn();
-      if (lines.length === 0) {
-        this.stopSubAgentRefresh();
-        return;
-      }
-      this.writeSubAgentOverlay(lines);
-    }, intervalMs);
-  }
-
-  stopSubAgentRefresh(): void {
-    if (this.subAgentRefreshTimer) {
-      clearInterval(this.subAgentRefreshTimer);
-      this.subAgentRefreshTimer = null;
-    }
   }
 
   refreshStatus(): void {
@@ -1073,7 +1044,7 @@ export class ScreenManager {
     // Recalculate layout accounting for active overlay rows
     this.state.inputLines = this.calcInputLines();
     this.state.statusRow = this.state.terminalHeight - this.state.inputLines - 1;
-    this.state.scrollBottom = this.state.statusRow - 1 - this.state.subAgentOverlayRows;
+    this.state.scrollBottom = this.state.statusRow - 1 - this.state.overlayRows;
     this.state.pendingInputRefresh = false;
     writeStdout(`${ESC}[1;${this.state.scrollBottom}r`);
     this.drawStatus();

@@ -2,6 +2,7 @@ import { SpicaAgent } from '../agent';
 import { getScreenManager } from './ui/screenManager';
 import { COLORS } from './ui/colors';
 import { getRuntimeState } from '../core/RuntimeState';
+import { getRunningCount } from './subagentPanel';
 import * as os from 'os';
 
 const screen = getScreenManager();
@@ -98,6 +99,10 @@ export function buildStatusText(agent: SpicaAgent, model: string | undefined): s
   const isBusy = state.isProcessing();
   const statusText = isBusy ? COLORS.warning('busy') : COLORS.success('idle');
 
+  // Subagent count
+  const subCount = getRunningCount();
+  const subInfo = subCount > 0 ? ` ${COLORS.primary(`${subCount} sub`)} |` : '';
+
   // Git 分支（无 repo 则不显示）
   const branch = state.getCurrentBranch();
   const branchInfo = branch ? ` | ${branch}` : '';
@@ -120,7 +125,7 @@ export function buildStatusText(agent: SpicaAgent, model: string | undefined): s
     }
   }
 
-  return `${statusText} | ${model || '?'}${branchInfo} | ${displayPath}`;
+  return `${statusText} |${subInfo} ${model || '?'}${branchInfo} | ${displayPath}`;
 }
 
 // 格式化参数（简洁版）

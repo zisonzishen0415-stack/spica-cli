@@ -48,7 +48,7 @@ export const ideaHandler: SlashHandler = async (args, ctx) => {
     // Refresh overlay if in idea workspace
     if (ctx.screen.isInIdeaWorkspace()) {
       const ideas = getAllIdeas(workspacePath);
-      ctx.screen.writeSubAgentOverlay(renderIdeaOverlay(ideas));
+      ctx.screen.writeOverlay(renderIdeaOverlay(ideas));
     }
     return;
   }
@@ -68,7 +68,7 @@ export const ideaHandler: SlashHandler = async (args, ctx) => {
     }
     if (ctx.screen.isInIdeaWorkspace()) {
       const ideas = getAllIdeas(workspacePath);
-      ctx.screen.writeSubAgentOverlay(renderIdeaOverlay(ideas));
+      ctx.screen.writeOverlay(renderIdeaOverlay(ideas));
     }
     return;
   }
@@ -88,7 +88,7 @@ export const ideaHandler: SlashHandler = async (args, ctx) => {
     }
     if (ctx.screen.isInIdeaWorkspace()) {
       const ideas = getAllIdeas(workspacePath);
-      ctx.screen.writeSubAgentOverlay(renderIdeaOverlay(ideas));
+      ctx.screen.writeOverlay(renderIdeaOverlay(ideas));
     }
     return;
   }

@@ -309,7 +309,7 @@ export async function runInteractiveMode(
               const id = parseInt(doneMatch[1], 10);
               markDone(wsp, id);
               const ideas = getAllIdeas(wsp);
-              screen.writeSubAgentOverlay(renderIdeaOverlay(ideas));
+              screen.writeOverlay(renderIdeaOverlay(ideas));
               screen.clearInput();
               screen.refreshInput();
               screen.restoreCursor();
@@ -322,7 +322,7 @@ export async function runInteractiveMode(
               const id = parseInt(delMatch[1], 10);
               deleteIdea(wsp, id);
               const ideas = getAllIdeas(wsp);
-              screen.writeSubAgentOverlay(renderIdeaOverlay(ideas));
+              screen.writeOverlay(renderIdeaOverlay(ideas));
               screen.clearInput();
               screen.refreshInput();
               screen.restoreCursor();
@@ -363,7 +363,7 @@ export async function runInteractiveMode(
             const idea = addIdea(wsp, trimmed);
             if (idea) {
               const ideas = getAllIdeas(wsp);
-              screen.writeSubAgentOverlay(renderIdeaOverlay(ideas));
+              screen.writeOverlay(renderIdeaOverlay(ideas));
               screen.clearInput();
               screen.refreshInput();
               screen.restoreCursor();
