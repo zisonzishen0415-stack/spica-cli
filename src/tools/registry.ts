@@ -527,6 +527,11 @@ export const TOOLS_DEFINITIONS: ToolDefinition[] = [
                 description:
                   'Subagent type: explore(read-only), review(+lint), fix(+edit), build(full)',
               },
+              skill: {
+                type: 'string',
+                description:
+                  'Skill name to auto-load into subagent context (e.g., "test-driven-development", "systematic-debugging"). Injects the skill prompt as a system message before the task prompt.',
+              },
             },
             required: ['description', 'prompt'],
           },

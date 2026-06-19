@@ -4,6 +4,7 @@ import { join } from 'path';
 import { SubAgentTask, getSubAgentConfig, summarizeResult, type SubAgentResult } from '../subAgent';
 import { WORKSPACE } from '../helpers';
 import type { ToolResult, ToolEventCallback } from '../helpers';
+import { getSkill, buildSkillPrompt } from '../../skills';
 
 interface TaskResult {
   status: SubAgentResult['status'];
@@ -303,6 +304,18 @@ export async function executeTask(
             await taskAgent.initAsSubAgent(parentAgent, task.model);
           } else {
             await taskAgent.init();
+          }
+
+          // Inject skill if specified — load skill prompt into subagent context
+          if (task.skill) {
+            const skill = getSkill(task.skill, taskWorkspace);
+            if (skill) {
+              const skillPrompt = buildSkillPrompt(skill, {});
+              taskAgent.getLLM()?.addMessage({
+                role: 'system',
+                content: `[SKILL: ${task.skill}]\n\n${skillPrompt}`,
+              });
+            }
           }
 
           const retryNote =
