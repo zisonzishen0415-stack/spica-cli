@@ -444,7 +444,7 @@ export function setupAgentEvents(
 
     // Inline scrollback announcement
     const icon = SUBAGENT_TYPE_ICONS[type] || '•';
-    screen.appendScroll(COLORS.secondary(`\n${icon} ${label} ${truncateToWidth(data.description || data.prompt.slice(0, 60), 50)}\n`));
+    screen.appendScroll(COLORS.secondary(`${icon} ${label} ${truncateToWidth(data.description || data.prompt.slice(0, 60), 50)}\n`));
 
     // Refresh status bar to show subagent count
     if (model) {
@@ -481,8 +481,7 @@ export function setupAgentEvents(
 
       const icon = SUBAGENT_TYPE_ICONS[record.type] || '•';
       const elapsed = formatElapsed(Date.now() - record.startTime);
-      const summary = data.summary ? ` — ${truncateToWidth(data.summary, 60)}` : '';
-      screen.appendScroll(COLORS.success(`  ${icon} ${COLORS.success('✓')} ${record.label} done (${elapsed}, ${record.toolCount} tools)${summary}\n`));
+      screen.appendScroll(COLORS.success(`  ${icon} ✓ ${record.label} done (${elapsed}, ${record.toolCount} tools)\n`));
 
       // Refresh status bar to update subagent count
       if (model) {
