@@ -252,13 +252,12 @@ async function runBackgroundSubagent(
         const retryNote = round > 0 ? '\n[CONTEXT] Previous answer: see above.' : '';
         const result = await taskAgent.runLoop(currentPrompt + retryNote);
 
-        // Check if result indicates a question
+        // Check if result indicates a question.
+        // RELIABLE: explicit NEEDS_CONTEXT status or text ending with a question mark.
+        // Unreliable (false positives): question-word at start without "?".
         const isQuestion =
           result.includes('NEEDS_CONTEXT') ||
-          /^(can|could|should|would|do|does|is|are|what|where|when|why|how|which|who)\s/i.test(
-            result.trim().slice(0, 100)
-          ) ||
-          result.includes('?');
+          (result.includes('?') && result.trim().length < 500);
 
         if (isQuestion && round < MAX_QUESTIONS) {
           // Extract question from result
