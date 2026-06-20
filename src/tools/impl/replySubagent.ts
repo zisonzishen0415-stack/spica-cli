@@ -12,9 +12,9 @@ export function unregisterWaitingSubagent(taskId: string): void {
   waitingSubagents.delete(taskId);
 }
 
-export async function executeReplySubagent(
+export function executeReplySubagent(
   args: Record<string, unknown>
-): Promise<ToolResult> {
+): ToolResult {
   const taskId = args.task_id as string | undefined;
   const answer = args.answer as string | undefined;
 

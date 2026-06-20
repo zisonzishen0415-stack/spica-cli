@@ -361,7 +361,7 @@ export function setupAgentEvents(
       displayToolResult(record, data);
     } else {
       // 未找到匹配，显示简单格式
-      const icon = data.success ? COLORS.success('✓') : COLORS.error('✗');
+      const icon = data.success ? COLORS.success('OK') : COLORS.error('ERR');
       const summary = formatToolSummary(data);
       screen.appendScroll(`${icon} ${data.name} → ${summary}\n`);
     }
@@ -481,7 +481,7 @@ export function setupAgentEvents(
 
       const icon = SUBAGENT_TYPE_ICONS[record.type] || '•';
       const elapsed = formatElapsed(Date.now() - record.startTime);
-      screen.appendScroll(COLORS.success(`  ${icon} ✓ ${record.label} done (${elapsed}, ${record.toolCount} tools)\n`));
+      screen.appendScroll(COLORS.success(`  [${icon}] OK ${record.label} done (${elapsed}, ${record.toolCount} tools)\n`));
 
       // Refresh status bar to update subagent count
       if (model) {
@@ -504,7 +504,7 @@ export function setupAgentEvents(
       const icon = SUBAGENT_TYPE_ICONS[record.type] || '•';
       const elapsed = formatElapsed(Date.now() - record.startTime);
       const errBrief = data.error.split('\n')[0].slice(0, 80);
-      screen.appendScroll(COLORS.error(`  ${icon} ${COLORS.error.bold('✗')} ${record.label} ${errBrief} (${elapsed})\n`));
+      screen.appendScroll(COLORS.error(`  [${icon}] ERR ${record.label} ${errBrief} (${elapsed})\n`));
 
       // Refresh status bar to update subagent count
       if (model) {
@@ -519,7 +519,7 @@ export function setupAgentEvents(
     const icon = record ? SUBAGENT_TYPE_ICONS[record.type] || '•' : '•';
 
     // Show in scrollback
-    screen.appendScroll(COLORS.warning(`  ${icon} ❓ ${data.label}: ${data.question.slice(0, 120)}\n`));
+    screen.appendScroll(COLORS.warning(`  [${icon}] ? ${data.label}: ${data.question.slice(0, 120)}\n`));
 
     // Inject as system message so parent LLM can see and answer
     const llm = agent.getLLM();
@@ -533,6 +533,11 @@ export function setupAgentEvents(
     // Update status bar
     if (model) {
       screen.setStatus(buildStatusText(agent, model));
+    }
+
+    // If parent is idle, notify user to continue
+    if (!getRuntimeState().isProcessing()) {
+      screen.appendScroll(COLORS.muted('  (use reply_subagent to answer, or press Enter)\n'));
     }
   });
 

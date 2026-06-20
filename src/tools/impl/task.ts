@@ -269,9 +269,14 @@ async function runBackgroundSubagent(
             label: taskLabel,
           });
 
-          // Wait for reply
-          const answer = await new Promise<string>((resolve) => {
+          // Wait for reply (with abort safety — reject if aborted while waiting)
+          const answer = await new Promise<string>((resolve, reject) => {
             registerWaitingSubagent(subTaskId, resolve);
+            const onAbort = () => {
+              unregisterWaitingSubagent(subTaskId);
+              reject(new Error('Aborted while waiting for reply'));
+            };
+            abortController?.signal.addEventListener('abort', onAbort, { once: true });
           });
 
           if (abortController.signal.aborted) {
@@ -582,7 +587,6 @@ export async function executeTask(
           // Check if this result is definitive — if so, signal siblings to stop early
           if (!earlyExitTriggered && tasks.length > 1) {
             const definitiveMarkers = [
-              /✓/,
               /success/i,
               /done/i,
               /complete/i,

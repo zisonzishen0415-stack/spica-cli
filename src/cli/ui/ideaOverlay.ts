@@ -55,8 +55,19 @@ export function renderIdeaOverlay(ideas: Idea[]): string[] {
   for (const idea of visible) {
     const marker = idea.status === 'done' ? '[x]' : '[ ]';
     const idLabel = `[${idea.id}]`;
+    // Grapheme-safe truncation — slice may cut surrogate pairs
     const maxText = boxWidth - 3 - 10;
-    const text = idea.text.length > maxText ? idea.text.slice(0, maxText - 1) + '…' : idea.text;
+    const graphemes = idea.text.match(/\P{M}\p{M}*/gu) || [idea.text];
+    let displayLen = 0;
+    let cutoff = graphemes.length;
+    for (let g = 0; g < graphemes.length; g++) {
+      const w = getStringDisplayWidth(graphemes[g]);
+      if (displayLen + w > maxText) { cutoff = g; break; }
+      displayLen += w;
+    }
+    const text = cutoff < graphemes.length
+      ? graphemes.slice(0, cutoff).join('') + '…'
+      : idea.text;
     const line = `${marker} ${idLabel} ${text}`;
     const pad = boxWidth - 3 - getStringDisplayWidth(line);
     const padded = `│ ${line}${' '.repeat(Math.max(0, pad))}│`;

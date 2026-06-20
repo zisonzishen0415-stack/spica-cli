@@ -32,10 +32,10 @@ export const subAgentState = {
 // ── Type icons ──────────────────────────────────────────────
 
 export const SUBAGENT_TYPE_ICONS: Record<string, string> = {
-  explore: '🔍',
-  review: '🔎',
-  fix: '🔧',
-  build: '🏗️',
+  explore: 'exp',
+  review: 'rev',
+  fix: 'fix',
+  build: 'bld',
 };
 
 export function getSortedAgents(): SubAgentRecord[] {
