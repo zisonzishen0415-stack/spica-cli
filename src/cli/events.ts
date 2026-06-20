@@ -513,6 +513,29 @@ export function setupAgentEvents(
     }
   });
 
+  // Background subagent asks a question — inject into parent LLM history
+  on('sub_agent_question', (data: { id: string; question: string; label: string }) => {
+    const record = subAgentState.get(data.id);
+    const icon = record ? SUBAGENT_TYPE_ICONS[record.type] || '•' : '•';
+
+    // Show in scrollback
+    screen.appendScroll(COLORS.warning(`  ${icon} ❓ ${data.label}: ${data.question.slice(0, 120)}\n`));
+
+    // Inject as system message so parent LLM can see and answer
+    const llm = agent.getLLM();
+    if (llm) {
+      llm.addMessage({
+        role: 'system',
+        content: `[SUBAGENT QUESTION - ${data.label}]\nTask ID: ${data.id}\nQuestion: ${data.question}\n\nReply with the reply_subagent tool: reply_subagent(task_id="${data.id}", answer="...")`,
+      });
+    }
+
+    // Update status bar
+    if (model) {
+      screen.setStatus(buildStatusText(agent, model));
+    }
+  });
+
   // Subagent text output — only track streamed chars, no scroll output
   on('sub_agent_message', (data: SubAgentMessageData) => {
     if (data.role === 'assistant' && data.content) {
