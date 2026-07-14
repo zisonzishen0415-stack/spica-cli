@@ -29,7 +29,7 @@ spica-cli is an AI coding agent CLI with interactive and single-task modes. It s
 - `src/utils/` — Settings, project config, session, history, platform, message cleaner, logger, bell
 - `src/builtin-skills/superpowers/` — 15 built-in skills
 
-**Stats:** 99 source files, 69 test files (168 git tracked `.ts` files), Node v24.14.1
+**Stats:** 99 source files, 69 test files (168 git tracked `.ts` files)
 
 ## Existing Instruction Files
 
@@ -85,7 +85,7 @@ CI (ubuntu) typically passes all tests, but session and boundary tests may fail 
 ## Lint
 
 ```bash
-npm run lint         # Run ESLint on src/**/*.ts (0 errors, 157 warnings)
+npm run lint         # Run ESLint on src/**/*.ts (0 errors, 102 warnings)
 npm run lint:fix     # Auto-fix lint issues (0 auto-fixable warnings)
 npm run lint:strict  # Fail on warnings (--max-warnings 0, not used in CI)
 ```
@@ -274,7 +274,7 @@ When the user corrects the AI, write a new `.spica/learnings/YYYY-MM-DD-topic.md
 
 ## Dependencies
 
-**Runtime:** `execa` (shell), `simple-git` (git), `fast-glob` (glob), `fs-extra` (file ops), `openai` (LLM client), `@modelcontextprotocol/sdk` (MCP), `commander` (CLI parsing), `chalk` (output), `node-pty` (interactive terminal), `ora` (spinners), `prompts` (user prompts), `axios` (HTTP), `https-proxy-agent`, `@ast-grep/cli` (AST code search/replace), `tiktoken` (token counting)
+**Runtime:** `execa` (shell), `simple-git` (git), `fast-glob` (glob), `fs-extra` (file ops), `openai` (LLM client), `@modelcontextprotocol/sdk` (MCP), `commander` (CLI parsing), `chalk` (output), `node-pty` (interactive terminal), `ora` (spinners), `prompts` (user prompts), `axios` (HTTP), `https-proxy-agent`
 
 **Dev:** `tsx` (TypeScript runner), `typescript` 5.4, `vitest` 1.6, `eslint` 10, `typescript-eslint` 8
 
@@ -289,19 +289,3 @@ When the user corrects the AI, write a new `.spica/learnings/YYYY-MM-DD-topic.md
 - `scripts/test-interrupt.sh` — Interrupt handling test
 - `scripts/test-compression.sh` — Compression test
 - `scripts/test-skills-invocation.sh` — Skills invocation test
-
-## Verified Commands (2025-07-14)
-
-All commands below confirmed working on Node v24.14.1, Windows:
-
-| Command | Expected | Actual |
-|---------|----------|--------|
-| `npm install` | Install deps | ✓ |
-| `npm run build` | Generate bin/spica | ✓ |
-| `./bin/spica --version` | `1.0.0` | ✓ |
-| `npx tsc --noEmit` | No errors | ✓ |
-| `npm run lint` | 0 errors, 157 warnings | ✓ |
-| `npm run test:run` | Tests pass | ✓ |
-| `npm run lint:strict` | Fails on warnings | ✓ (157w > 0) |
-
-**Note:** `npm run lint:strict` uses `--max-warnings 0` and will fail due to existing warnings (not used in CI).

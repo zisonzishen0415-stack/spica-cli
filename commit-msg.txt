@@ -1,1 +1,0 @@
-spica: bash stuck detection v3  
