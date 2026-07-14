@@ -1,0 +1,108 @@
+
+[7m[1m[36m RUN [39m[22m[27m [36mv1.6.1[39m [90mD:/zisonzishen/development/spica-cli-coding-agent-master[39m
+
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for npm install
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for pnpm install
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for yarn install
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for git clone
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for git pull
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for pip install
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for cargo build
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould apply multiplier for npx tsc
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould use default threshold for echo commands
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould use default threshold for ls
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould handle empty commands
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould handle docker build
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSmart Slow-Command Detection[2m > [22mshould handle npx vitest run
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mStuck Detector State Machine[2m > [22mshould NOT fire if onOutput is called before timeout
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mStuck Detector State Machine[2m > [22mshould fire exactly once when no output arrives
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mStuck Detector State Machine[2m > [22mshould reset timer on each onOutput call
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mStuck Detector State Machine[2m > [22mshould handle multiple rapid outputs
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mStuck Detector State Machine[2m > [22mshould dispose cleanly without firing
+ [31m×[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mstuckWarning Parameter in Registry[2m > [22mshould expose stuckWarning in bash tool definition
+[31m   → expected { …(6) } to have property "stuckWarning"[39m
+ [31m×[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mstuckWarning Parameter in Registry[2m > [22mshould describe auto-adjusted behavior and default
+[31m   → Cannot read properties of undefined (reading 'type')[39m
+ [32m✓[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mSLOW_COMMAND_PATTERNS coverage[2m > [22mshould cover git, npm, pip, cargo/go, docker, yarn, build systems
+ [31m×[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mBash stuck with real commands[2m > [22mshould complete fast echo command without triggering stuck
+[31m   → expected false to be true // Object.is equality[39m
+ [31m×[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mBash stuck with real commands[2m > [22mshould complete npm --version without triggering stuck[33m 400[2mms[22m[39m
+[31m   → EBUSY: resource busy or locked, rmdir 'D:\zisonzishen\development\spica-cli-coding-agent-master\test-bash-stuck-temp'[39m
+ [31m×[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mBash stuck with real commands[2m > [22mshould allow explicit stuckWarning override
+[31m   → expected false to be true // Object.is equality[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[1m[7m Failed Tests 5 [27m[22m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mstuckWarning Parameter in Registry[2m > [22mshould expose stuckWarning in bash tool definition
+[31m[1mAssertionError[22m: expected { …(6) } to have property "stuckWarning"[39m
+[36m [2m❯[22m src/tools/__tests__/bashStuck.test.ts:[2m196:44[22m[39m
+    [90m194| [39m    [35mconst[39m bashDef [33m=[39m [33mTOOLS_DEFINITIONS[39m[33m.[39m[34mfind[39m(t [33m=>[39m t[33m.[39mname [33m===[39m [32m'bash'[39m)[33m;[39m
+    [90m195| [39m    [34mexpect[39m(bashDef)[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m196| [39m    [34mexpect[39m(bashDef[33m![39m[33m.[39mparameters[33m.[39mproperties)[33m.[39m[34mtoHaveProperty[39m([32m'stuckWarnin[39m…
+    [90m   | [39m                                           [31m^[39m
+    [90m197| [39m  })[33m;[39m
+    [90m198| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mstuckWarning Parameter in Registry[2m > [22mshould describe auto-adjusted behavior and default
+[31m[1mTypeError[22m: Cannot read properties of undefined (reading 'type')[39m
+[36m [2m❯[22m src/tools/__tests__/bashStuck.test.ts:[2m202:17[22m[39m
+    [90m200| [39m    [35mconst[39m bashDef [33m=[39m [33mTOOLS_DEFINITIONS[39m[33m.[39m[34mfind[39m(t [33m=>[39m t[33m.[39mname [33m===[39m [32m'bash'[39m)[33m;[39m
+    [90m201| [39m    [35mconst[39m prop [33m=[39m bashDef[33m![39m[33m.[39mparameters[33m.[39mproperties[33m.[39mstuckWarning[33m;[39m
+    [90m202| [39m    [34mexpect[39m(prop[33m.[39mtype)[33m.[39m[34mtoBe[39m([32m'number'[39m)[33m;[39m
+    [90m   | [39m                [31m^[39m
+    [90m203| [39m    [34mexpect[39m(prop[33m.[39mdescription)[33m.[39m[34mtoContain[39m([32m'auto-adjusted'[39m)[33m;[39m
+    [90m204| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mBash stuck with real commands[2m > [22mshould complete fast echo command without triggering stuck
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m src/tools/__tests__/bashStuck.test.ts:[2m240:28[22m[39m
+    [90m238| [39m    })[33m;[39m
+    [90m239| [39m
+    [90m240| [39m    [34mexpect[39m(result[33m.[39msuccess)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   | [39m                           [31m^[39m
+    [90m241| [39m    [34mexpect[39m(result[33m.[39merror)[33m.[39m[34mtoBeUndefined[39m()[33m;[39m
+    [90m242| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mBash stuck with real commands[2m > [22mshould complete npm --version without triggering stuck
+[31m[1mError[22m: EBUSY: resource busy or locked, rmdir 'D:\zisonzishen\development\spica-cli-coding-agent-master\test-bash-stuck-temp'[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22m[39m
+[31m[1mSerialized Error:[22m[39m [90m{ errno: -4082, code: 'EBUSY', syscall: 'rmdir', path: 'D:\zisonzishen\development\spica-cli-coding-agent-master\test-bash-stuck-temp' }[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯[22m[39m
+
+[31m[1m[7m FAIL [27m[22m[39m src/tools/__tests__/bashStuck.test.ts[2m > [22mBash stuck with real commands[2m > [22mshould allow explicit stuckWarning override
+[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- true[39m
+[31m+ false[39m
+
+[36m [2m❯[22m src/tools/__tests__/bashStuck.test.ts:[2m259:28[22m[39m
+    [90m257| [39m    })[33m;[39m
+    [90m258| [39m
+    [90m259| [39m    [34mexpect[39m(result[33m.[39msuccess)[33m.[39m[34mtoBe[39m([35mtrue[39m)[33m;[39m
+    [90m   | [39m                           [31m^[39m
+    [90m260| [39m    [34mexpect[39m(result[33m.[39merror)[33m.[39m[34mtoBeUndefined[39m()[33m;[39m
+    [90m261| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯[22m[39m
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m5 failed[39m[22m[2m | [22m[1m[32m19 passed[39m[22m[90m (24)[39m
+[2m   Start at [22m 10:39:59
+[2m   Duration [22m 1.34s[2m (transform 169ms, setup 0ms, collect 605ms, tests 533ms, environment 0ms, prepare 73ms)[22m
+

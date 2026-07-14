@@ -1,0 +1,74 @@
+{
+  "name": "spica-cli",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AI coding agent CLI - Intelligent tool orchestration, auto-retry, code quality analysis",
+  "main": "dist/index.js",
+  "bin": {
+    "spica": "bin/spica",
+    "spica.cmd": "bin/spica.cmd"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "npm run build:cli",
+    "build:cli": "node scripts/build-bin.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "lint:strict": "eslint src/**/*.ts --max-warnings 0"
+  },
+  "keywords": [
+    "ai",
+    "cli",
+    "coding-agent",
+    "llm",
+    "openai",
+    "assistant",
+    "developer-tools",
+    "automation",
+    "code-generation",
+    "code-review",
+    "typescript",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "author": "zison",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zison/spica-cli"
+  },
+  "homepage": "https://github.com/zison/spica-cli#readme",
+  "bugs": {
+    "url": "https://github.com/zison/spica-cli/issues"
+  },
+  "dependencies": {
+    "@ast-grep/cli": "^0.44.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "axios": "^1.16.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "execa": "^9.1.0",
+    "fast-glob": "^3.3.3",
+    "fs-extra": "^11.2.0",
+    "https-proxy-agent": "^9.0.0",
+    "node-pty": "^1.1.0",
+    "openai": "^4.52.0",
+    "ora": "^8.0.1",
+    "prompts": "^2.4.2",
+    "simple-git": "^3.25.0",
+    "tiktoken": "^1.0.22"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^20.12.12",
+    "@types/prompts": "^2.4.9",
+    "eslint": "^10.4.1",
+    "tsx": "^4.21.1",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.60.0",
+    "vitest": "^1.6.0"
+  }
+}
