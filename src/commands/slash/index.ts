@@ -5,7 +5,7 @@ import { skillManageHandler, skillInvokeHandler } from './skill';
 import { mcpHandler } from './mcp';
 import { compactHandler, summaryHandler } from './compact';
 import { statusHandler } from './status';
-import { helpHandler, initHandler, historyMsgHandler } from './help';
+import { helpHandler, initHandler } from './help';
 import { subagentsHandler } from './subagents';
 import { ideaHandler } from './idea';
 import { getSkill } from '../../skills';

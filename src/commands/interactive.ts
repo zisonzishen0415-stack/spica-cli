@@ -626,6 +626,17 @@ export async function runInteractiveMode(
           screen.appendScroll(COLORS.muted("  /mcp tools      List available tools\n"));
           screen.appendScroll(COLORS.muted("  /mcp disconnect Disconnect all servers\n"));
           screen.appendScroll("\n");
+          screen.appendScroll(COLORS.primary.bold("Ideas:\n"));
+          screen.appendScroll(COLORS.muted("  /idea <text>               Capture an idea\n"));
+          screen.appendScroll(COLORS.muted("  /idea (no args)            Enter idea workspace\n"));
+          screen.appendScroll(COLORS.muted("  /ideas                     List all ideas\n"));
+          screen.appendScroll(COLORS.muted("  /idea-done <id>            Mark idea done\n"));
+          screen.appendScroll(COLORS.muted("  /idea-open <id>            Re-open idea\n"));
+          screen.appendScroll(COLORS.muted("  /idea-delete <id>          Delete idea\n"));
+          screen.appendScroll("\n");
+          screen.appendScroll(COLORS.primary.bold("Subagents:\n"));
+          screen.appendScroll(COLORS.muted("  /subagents   View subagent history\n"));
+          screen.appendScroll("\n");
           screen.appendScroll(COLORS.muted("  /status     Show status (messages, tokens, model, queue)\n"));
           screen.appendScroll("\n");
         };

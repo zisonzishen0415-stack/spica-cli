@@ -34,6 +34,17 @@ export const helpHandler: SlashHandler = async (_args, ctx) => {
   ctx.screen.appendScroll(COLORS.muted('  /mcp tools      List available tools\n'));
   ctx.screen.appendScroll(COLORS.muted('  /mcp disconnect  Disconnect all servers\n'));
   ctx.screen.appendScroll('\n');
+  ctx.screen.appendScroll(COLORS.primary.bold('Ideas:\n'));
+  ctx.screen.appendScroll(COLORS.muted('  /idea <text>               Capture an idea\n'));
+  ctx.screen.appendScroll(COLORS.muted('  /idea (no args)            Enter idea workspace\n'));
+  ctx.screen.appendScroll(COLORS.muted('  /ideas                     List all ideas\n'));
+  ctx.screen.appendScroll(COLORS.muted('  /idea-done <id>            Mark idea done\n'));
+  ctx.screen.appendScroll(COLORS.muted('  /idea-open <id>            Re-open idea\n'));
+  ctx.screen.appendScroll(COLORS.muted('  /idea-delete <id>          Delete idea\n'));
+  ctx.screen.appendScroll('\n');
+  ctx.screen.appendScroll(COLORS.primary.bold('Subagents:\n'));
+  ctx.screen.appendScroll(COLORS.muted('  /subagents   View subagent history\n'));
+  ctx.screen.appendScroll('\n');
   ctx.screen.appendScroll(COLORS.muted('  /status     Show status (messages, tokens, model, queue)\n'));
   ctx.screen.appendScroll('\n');
 };
@@ -49,24 +60,4 @@ Verify every command by running it. Don't guess. Be specific to this project.
 If AGENTS.md already exists, preserve valuable content and supplement updates.${userArgs ? '\n\nAdditional instructions: ' + userArgs : ''}`;
 
   await ctx.handleInput(initPrompt);
-};
-
-export const historyMsgHandler: SlashHandler = async (_args, ctx) => {
-  const msgs = ctx.agent.getMessages();
-
-  ctx.screen.appendScroll(COLORS.primary.bold('\nHistory:\n'));
-  if (msgs.length === 0) {
-    ctx.screen.appendScroll(COLORS.muted('  (empty)\n'));
-  } else {
-    msgs.forEach((m: { role: string; content?: string }, i: number) => {
-      const role = m.role === 'user' ? 'YOU' : m.role === 'assistant' ? 'AI' : 'SYS';
-      const content = m.content || '';
-      ctx.screen.appendScroll(COLORS.muted(`  ${i + 1}. [${role}]\n`));
-      content.split('\n').forEach((line: string) => {
-        ctx.screen.appendScroll(COLORS.muted(`     ${line}\n`));
-      });
-    });
-    ctx.screen.appendScroll(COLORS.muted(`\n  Total: ${msgs.length} messages\n`));
-  }
-  ctx.screen.appendScroll('\n');
 };

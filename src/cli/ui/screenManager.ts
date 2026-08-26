@@ -187,7 +187,11 @@ export class ScreenManager {
       totalLines += Math.max(1, Math.ceil(lineWidth / width));
     }
 
-    return totalLines;
+    // Cap the input area so an extremely long/multi-line paste cannot
+    // squeeze the scrollback region to zero (TUI-REVIEW #1). refreshInput
+    // already stops drawing past the terminal edge.
+    const MAX_INPUT_LINES = 5;
+    return Math.min(totalLines, MAX_INPUT_LINES);
   }
 
   private updateLayout(): void {
