@@ -31,6 +31,9 @@ import {
   buildSummaryPrompt as _buildSummaryPrompt,
 } from './core/compression';
 import { ProgressTracker } from './core/progressTracker';
+import { resolveAlias, detectToolConflicts } from './tools/conflictDetector';
+import { isRetryableError, isCriticalToolError, generateErrorSuggestion } from './core/errorPolicy';
+import { callLLMWithRetry } from './core/llmRetry';
 import {
   batchNeedsVerify,
   detectVerifyCommand,
@@ -46,110 +49,6 @@ import {
   doInit,
   loadProjectConfig as _loadProjectConfig,
 } from './core/init';
-
-// 解析向后兼容的工具别名
-function resolveAlias(toolName: string): string {
-  const ALIASES: Record<string, string> = {
-    'file_read': 'read',
-    'file_write': 'write',
-    'file_edit': 'edit',
-  };
-  return ALIASES[toolName] || toolName;
-}
-
-// 工具冲突检测：提取资源路径
-function extractResourcePath(toolName: string, args: Record<string, unknown>): string | null {
-  const resolved = resolveAlias(toolName);
-  // 文件操作工具
-  if (
-    [
-      'read',
-      'write',
-      'edit',
-      'file_multi_edit',
-      'file_delete',
-      'file_copy',
-      'file_move',
-      'file_exists',
-      'file_patch',
-    ].includes(resolved)
-  ) {
-    return (args.path || args.file_path || args.source || args.from) as string | null;
-  }
-  // bash 命令中可能涉及的文件（检测 rm、mv、cp 等操作）
-  if (toolName === 'bash') {
-    const cmd = (args.command as string) || '';
-    // 检查是否有文件修改操作
-    if (/\b(rm|mv|cp|rsync)\b/.test(cmd)) {
-      // 提取最后一个非选项参数作为文件路径
-      const parts = cmd.split(/\s+/).filter(p => !p.startsWith('-') && !p.startsWith('--'));
-      // rm/mv/cp 通常最后一个或倒数第二个参数是目标文件
-      const filePath = parts[parts.length - 1] || parts[parts.length - 2];
-      if (filePath && !filePath.includes('|') && !filePath.includes('>')) {
-        return filePath;
-      }
-    }
-    // 检查写入重定向
-    const writeMatch = cmd.match(/>>\s*(\S+)/);
-    if (writeMatch) return writeMatch[1];
-    const redirectMatch = cmd.match(/>\s*(\S+)/);
-    if (redirectMatch && !cmd.includes('>>') && !cmd.includes('|')) return redirectMatch[1];
-  }
-  // git 操作（整个仓库）
-  if (toolName === 'git') {
-    return 'git:repo'; // git 操作视为同资源
-  }
-  return null;
-}
-
-// 检测工具调用冲突：返回需要顺序执行的工具组
-function detectToolConflicts(
-  toolCalls: Array<{ name: string; id: string; arguments: Record<string, unknown> }>
-): {
-  parallel: Array<{ name: string; id: string; arguments: Record<string, unknown> }>;
-  sequential: Array<Array<{ name: string; id: string; arguments: Record<string, unknown> }>>;
-  conflicts: Array<{ path: string; tools: string[] }>;
-} {
-  const pathToTools: Map<
-    string,
-    Array<{ name: string; id: string; arguments: Record<string, unknown> }>
-  > = new Map();
-  const noConflictTools: Array<{ name: string; id: string; arguments: Record<string, unknown> }> =
-    [];
-
-  for (const tc of toolCalls) {
-    const resourcePath = extractResourcePath(tc.name, tc.arguments);
-    if (resourcePath) {
-      if (!pathToTools.has(resourcePath)) {
-        pathToTools.set(resourcePath, []);
-      }
-      pathToTools.get(resourcePath)!.push(tc);
-    } else {
-      noConflictTools.push(tc);
-    }
-  }
-
-  // 分组：无冲突的并行执行，有冲突的顺序执行
-  const sequential: Array<Array<{ name: string; id: string; arguments: Record<string, unknown> }>> =
-    [];
-  const parallel: Array<{ name: string; id: string; arguments: Record<string, unknown> }> = [
-    ...noConflictTools,
-  ];
-  const conflicts: Array<{ path: string; tools: string[] }> = [];
-
-  for (const [path, tools] of pathToTools) {
-    if (tools.length === 1) {
-      // 单个工具操作该资源，可以并行
-      parallel.push(tools[0]);
-    } else {
-      // 多个工具操作同一资源，需要顺序执行
-      sequential.push(tools);
-      conflicts.push({ path, tools: tools.map(t => t.name) });
-    }
-  }
-
-  return { parallel, sequential, conflicts };
-}
 
 /**
  * Todo item for task tracking
@@ -351,9 +250,6 @@ export class SpicaAgent extends EventEmitter {
     return null;
   }
 
-  // 待处理的新输入（用于在工具执行间隙插入新指令）
-  private pendingInput: string | null = null;
-
   // 队列输入注入回调（由 CLI 设置，用于在迭代间隙获取队列输入）
   private queueInputCallback: (() => string | null) | null = null;
 
@@ -465,16 +361,6 @@ export class SpicaAgent extends EventEmitter {
     return this.currentAbortController !== null;
   }
 
-  // 设置待处理的新输入（用于在工具执行间隙插入新指令）
-  setPendingInput(input: string | null): void {
-    this.pendingInput = input;
-  }
-
-  // 获取待处理的新输入
-  getPendingInput(): string | null {
-    return this.pendingInput;
-  }
-
   // 设置队列输入回调（由 CLI 设置，用于在迭代间隙获取队列输入）
   setQueueInputCallback(callback: (() => string | null) | null): void {
     this.queueInputCallback = callback;
@@ -507,7 +393,7 @@ export class SpicaAgent extends EventEmitter {
     if (this.queueInputCallback) {
       return this.queueInputCallback();
     }
-    return this.pendingInput;
+    return null;
   }
 
   setToolWhitelist(allowedTools: string[]): void {
@@ -543,185 +429,6 @@ export class SpicaAgent extends EventEmitter {
   }
 
   // 判断错误是否可重试
-  private isRetryableError(error: unknown): boolean {
-    const message = error instanceof Error ? error.message : String(error);
-    const code = String(
-      (error as { code?: unknown; status?: unknown }).code ||
-        (error as { code?: unknown; status?: unknown }).status ||
-        ''
-    );
-
-    // 不可重试的错误
-    const nonRetryablePatterns = [
-      '400', // 请求格式错误（如不支持的消息角色）
-      '401', // 认证失败
-      '403', // 权限不足
-      '404', // 资源不存在
-      'invalid',
-      'unauthorized',
-      'permission',
-    ];
-
-    for (const pattern of nonRetryablePatterns) {
-      if (message.includes(pattern) || code === pattern) {
-        return false;
-      }
-    }
-
-    // 可重试的错误：网络问题、超时、速率限制、服务器错误
-    const retryablePatterns = [
-      'ECONNREFUSED',
-      'ENOTFOUND',
-      'ETIMEDOUT',
-      'ECONNRESET',
-      '429',
-      '500',
-      '502',
-      '503',
-      'timeout',
-      'network',
-      'connection',
-      'rate limit',
-    ];
-
-    for (const pattern of retryablePatterns) {
-      if (message.toLowerCase().includes(pattern.toLowerCase()) || code === pattern) {
-        return true;
-      }
-    }
-
-    // 默认：未知错误也重试（网络波动等临时问题）
-    return true;
-  }
-
-  // 判断工具错误是否是"关键错误"（应该停止整个生成循环）
-  private isCriticalToolError(
-    toolName: string,
-    result: { success: boolean; error?: string; output?: string }
-  ): boolean {
-    if (result.success) return false;
-
-    const error = result.error || '';
-
-    // Web 工具的特殊处理优先：网络/API 错误不应该停止整个任务
-    // Agent 应该尝试其他方案或使用已有信息继续
-    if (toolName === 'web_search' || toolName === 'web_fetch') {
-      return false; // web 工具错误永远不 critical
-    }
-
-    // 只有 AI 调用相关的错误才是 critical
-    const criticalPatterns = [
-      'invalid API key',
-      'authentication failed',
-      'ECONNREFUSED',
-      'ENOTFOUND',
-      'API connection failed',
-      // 注意：403/401 对于非 AI 调用不 critical（如 web 工具已在上面处理）
-    ];
-
-    for (const pattern of criticalPatterns) {
-      if (error.toLowerCase().includes(pattern.toLowerCase())) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  // 带重试的 LLM 调用（参考 Claude Code 等 coding agent 的重试策略）
-  private async callLLMWithRetry<T>(
-    operation: (signal?: AbortSignal) => Promise<T>,
-    operationName: string,
-    maxRetries: number = 10,
-    signal?: AbortSignal
-  ): Promise<T> {
-    let lastError: Error | undefined;
-
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      // 检查中断信号
-      if (signal?.aborted) {
-        throw new InterruptError('Interrupted by user');
-      }
-
-      try {
-        // Pass signal to operation
-        return await operation(signal);
-      } catch (error: unknown) {
-        // InterruptError: don't retry, propagate immediately
-        if (
-          error instanceof InterruptError ||
-          (error instanceof Error && error.name === 'InterruptError')
-        ) {
-          throw error;
-        }
-
-        lastError = error instanceof Error ? error : new Error(String(error));
-
-        // 最后一次尝试不再重试
-        if (attempt === maxRetries) {
-          break;
-        }
-
-        // 检查中断信号
-        if (signal?.aborted) {
-          throw new InterruptError('Interrupted by user after error');
-        }
-
-        // 检查是否可重试（认证等错误直接抛出）
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        if (!this.isRetryableError(error)) {
-          this.emit('error_suggestion', {
-            tool: operationName,
-            error: errorMsg,
-            suggestion: `Error not retryable, user needs to handle: ${errorMsg}`,
-          });
-          throw error;
-        }
-
-        if (signal?.aborted) {
-          throw new InterruptError('Interrupted by user before retry');
-        }
-
-        // 指数退避：2s, 4s, 8s, 16s, 32s, 64s, 120s...（最大120秒）
-        const delay = Math.min(2000 * Math.pow(2, attempt), 120000);
-        this.emit('retry_attempt', {
-          operation: operationName,
-          attempt: attempt + 1,
-          maxRetries,
-          delay,
-          error: errorMsg,
-        });
-
-        // Single setTimeout with AbortSignal support for interrupt checking.
-        // Avoids Date.now() polling loop which is fragile with fake timers in tests.
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(resolve, delay);
-          if (signal) {
-            signal.addEventListener(
-              'abort',
-              () => {
-                clearTimeout(timeout);
-                reject(new InterruptError('Interrupted by user during retry delay'));
-              },
-              { once: true }
-            );
-          }
-        });
-
-        // Double-check: if signal was already aborted before the listener was registered,
-        // the above listener won't fire — check here.
-        if (signal?.aborted) {
-          throw new InterruptError('Interrupted by user during retry delay');
-        }
-      }
-    }
-
-    // If signal was aborted during the last attempt, prefer InterruptError
-    if (signal?.aborted) {
-      throw new InterruptError('Interrupted by user');
-    }
-    throw lastError;
-  }
 
   /**
    * Initialize agent and LLM client
@@ -1005,9 +712,11 @@ export class SpicaAgent extends EventEmitter {
 
       let response;
       try {
-        response = await this.callLLMWithRetry(
+        response = await callLLMWithRetry(
           sig => this.llm!.generate(prompt, toolDefinitions, sig),
           'llm_generate',
+          this.emit.bind(this),
+          isRetryableError,
           10,
           signal // Pass abort signal
         );
@@ -1087,10 +796,15 @@ export class SpicaAgent extends EventEmitter {
             if (queueInjectedThisIteration) {
               this.emit('waiting_for_llm');
               try {
-                response = await this.callLLMWithRetry(
+                response = await callLLMWithRetry(
                   sig => this.llm!.generateFromHistory(toolDefinitions, sig),
                   'llm_generate_queue',
+                  this.emit.bind(this),
+
+                  isRetryableError,
+
                   10,
+
                   signal
                 );
               } catch (retryError: unknown) {
@@ -1128,10 +842,15 @@ export class SpicaAgent extends EventEmitter {
             try {
               // 关键修复：使用 generateFromHistory 而不是 generate('', ...)
               // generate('', ...) 会添加空 user 消息，破坏对话历史，导致 LLM 混乱
-              response = await this.callLLMWithRetry(
+              response = await callLLMWithRetry(
                 sig => this.llm!.generateFromHistory(toolDefinitions, sig),
                 'llm_generate_reasoning_continue',
+                this.emit.bind(this),
+
+                isRetryableError,
+
                 10,
+
                 signal // Pass abort signal
               );
             } catch (retryError: unknown) {
@@ -1171,10 +890,15 @@ export class SpicaAgent extends EventEmitter {
           try {
             // 关键修复：使用 generateFromHistory 而不是 generate('', ...)
             // 因为上面已经添加了提示消息，不需要再添加空的 user 消息
-            response = await this.callLLMWithRetry(
+            response = await callLLMWithRetry(
               sig => this.llm!.generateFromHistory(toolDefinitions, sig),
               'llm_generate_empty_retry',
+              this.emit.bind(this),
+
+              isRetryableError,
+
               10,
+
               signal // Pass abort signal
             );
           } catch (retryError: unknown) {
@@ -1298,8 +1022,8 @@ export class SpicaAgent extends EventEmitter {
                 // Record non-interrupt errors in ProgressTracker
                 this._progress.recordError(`${resolvedName}: ${(result.error || '').slice(0, 100)}`);
 
-                if (this.isCriticalToolError(resolvedName, result)) {
-                  const suggestion = this.generateErrorSuggestion(
+                if (isCriticalToolError(resolvedName, result)) {
+                  const suggestion = generateErrorSuggestion(
                     resolvedName,
                     result.error || '',
                     tcArgs
@@ -1321,7 +1045,7 @@ export class SpicaAgent extends EventEmitter {
                 this.emit('error_suggestion', {
                   toolName: resolvedName,
                   error: result.error || 'Unknown error',
-                  suggestion: this.generateErrorSuggestion(resolvedName, result.error || '', tcArgs),
+                  suggestion: generateErrorSuggestion(resolvedName, result.error || '', tcArgs),
                 });
               }
 
@@ -1606,7 +1330,7 @@ export class SpicaAgent extends EventEmitter {
           if (toolResults.length > 0) {
             this.emit('waiting_for_llm'); // 通知外部启动心跳
             try {
-              response = await this.callLLMWithRetry(
+              response = await callLLMWithRetry(
                 sig =>
                   this.llm!.continueWithAllToolResults(
                     toolResults.map(t => ({ name: t.name, result: t.result, id: t.id })),
@@ -1615,6 +1339,8 @@ export class SpicaAgent extends EventEmitter {
                     sig // Pass signal
                   ),
                 'llm_continue',
+                this.emit.bind(this),
+                isRetryableError,
                 10,
                 signal // Pass abort signal
               );
@@ -1622,7 +1348,7 @@ export class SpicaAgent extends EventEmitter {
               this.syncFullHistory();
             } catch (llmError: unknown) {
               const errorMsg = llmError instanceof Error ? llmError.message : String(llmError);
-              const isRetryable = this.isRetryableError(llmError);
+              const isRetryable = isRetryableError(llmError);
 
               // 关键修复：保留已执行的 tool results，不要丢弃
               // 只有当工具确实执行了才保留，否则清理不完整序列
@@ -1740,62 +1466,6 @@ export class SpicaAgent extends EventEmitter {
     await this.init();
   }
 
-  private generateErrorSuggestion(
-    toolName: string,
-    error: string,
-    args: Record<string, unknown>
-  ): string {
-    const suggestions: Record<string, (e: string, a: Record<string, unknown>) => string> = {
-      read: (e, a) =>
-        e.includes('ENOENT')
-          ? `File not found: ${a.path}. Try: glob to find similar files, or check path spelling.`
-          : e.includes('EACCES')
-            ? `Permission denied: ${a.path}. Try: check file permissions, or use different path.`
-            : `Read failed. Try: check path exists, or use glob to search.`,
-      write: (e, a) =>
-        e.includes('EACCES')
-          ? `Permission denied: ${a.path}. Try: check file permissions, or use different path.`
-          : e.includes('ENOENT')
-            ? `Directory not found: ${a.path}. Try: create directory first with directory_create.`
-            : `Write failed. Try: check path and content, or use edit for existing files.`,
-      edit: (e, a) =>
-        e.includes('not found')
-          ? `Text not found in file. Try: read file first to get exact text, or use smaller snippet.`
-          : `Edit failed. Try: read file to verify content, or use write to overwrite.`,
-      bash: (e, a) =>
-        e.includes('command not found')
-          ? `Command not found: ${a.command}. Try: install required tool, or use alternative command.`
-          : e.includes('Permission denied')
-            ? `Permission denied: ${a.command}. Try: check permissions, or use sudo if safe.`
-            : e.includes('timeout')
-              ? `Command timed out. Consider: detached=true, longer timeout, or break into smaller steps.`
-              : `Execution failed. Try: check command syntax, or use simpler command.`,
-      glob: (e, a) =>
-        `Search failed: ${a.pattern}. Try: simpler pattern (e.g., *.ts), or check directory exists.`,
-      grep: (e, a) => `Search failed. Try: simpler pattern, or use glob first to find files.`,
-      test: (e, _a) =>
-        e.includes('timeout')
-          ? `Test timed out. Consider: run with longer timeout, run specific test file, or use quick validation (tsc, lint).`
-          : `Test failed. Try: run single test file, or check test output for details.`,
-      lint: (e, _a) =>
-        e.includes('error')
-          ? `Lint errors found. Try: fix errors one by one, or use format tool.`
-          : `Lint failed. Try: check file syntax, or run on smaller scope.`,
-      directory_list: (e, a) =>
-        `Directory listing failed: ${a.path}. Try: check path exists, or use glob to search.`,
-      file_delete: (e, a) =>
-        `Delete failed: ${a.path}. Try: check file exists, or check permissions.`,
-      file_copy: (e, a) =>
-        `Copy failed. Try: check source exists: ${a.source}, or check destination path.`,
-      file_move: (e, a) =>
-        `Move failed. Try: check source exists: ${a.source}, or check destination permissions.`,
-    };
-
-    const baseSuggestion =
-      suggestions[toolName]?.(error, args) || `Tool ${toolName} failed. Check parameters.`;
-
-    return baseSuggestion;
-  }
 
   /**
    * Report BLOCKED status when agent cannot proceed

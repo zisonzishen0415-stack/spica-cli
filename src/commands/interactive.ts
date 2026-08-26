@@ -471,23 +471,21 @@ export async function runInteractiveMode(
           }
 
           if (trimmed === "help") {
-            showHelp();
-
+            // 帮助文本唯一来源：helpHandler（/help）
+            await dispatchSlash("/help", {
+              agent, screen, state, tokenCounter,
+              isProcessing,
+              setProcessing: (v: boolean) => { isProcessing = v; state.setProcessing(v); },
+              providerConfig: providerConfig!,
+              updateStatusBar: updateStatusBarLocal,
+              handleInput,
+            });
             return;
           }
 
           // === / 命令 ===
           if (trimmed.startsWith("/")) {
             const cmd = trimmed.slice(1).toLowerCase().split(/\s+/)[0];
-
-            // 删除 /switch 功能（历史只读）
-            if (cmd === "switch") {
-              screen.appendScroll(COLORS.warning("\n[NOTE] /switch is disabled\n"));
-              screen.appendScroll(COLORS.muted("  History sessions are read-only for review.\n"));
-              screen.appendScroll(COLORS.muted("  To continue work, stay in current session.\n"));
-              screen.appendScroll(COLORS.muted("  Use /archive to save current and start new.\n\n"));
-              return;
-            }
 
             // All slash commands → unified dispatch
             const handled = await dispatchSlash(trimmed, {
@@ -611,57 +609,7 @@ export async function runInteractiveMode(
           });
         };
 
-        // 帮助信息
-        const showHelp = () => {
-          screen.appendScroll(COLORS.primary.bold("\nCommands:\n"));
-          screen.appendScroll(COLORS.muted("  quit/exit   Exit spica\n"));
-          screen.appendScroll(COLORS.muted("  /help /h    Show this help\n"));
-          screen.appendScroll("\n");
-          screen.appendScroll(COLORS.primary.bold("Session:\n"));
-          screen.appendScroll(COLORS.muted("  /archive /clear /reset /new  Archive current & start new\n"));
-          screen.appendScroll(COLORS.muted("  /history /sessions           Browse archived chats (read-only)\n"));
-          screen.appendScroll(COLORS.muted("  /view <id>                   Read specific archived chat\n"));
-          screen.appendScroll(COLORS.muted("  /rename <id> <name>          Rename archived chat\n"));
-          screen.appendScroll(COLORS.muted("  /delete <id>                 Delete archived chat\n"));
-          screen.appendScroll(COLORS.muted("  /summary /sum                Summarize current session\n"));
-          screen.appendScroll(COLORS.muted("  /compact                     Compress context\n"));
-          screen.appendScroll(COLORS.muted("  /init [instructions]         Create AGENTS.md\n"));
-          screen.appendScroll("\n");
-          screen.appendScroll(COLORS.primary.bold("Queue:\n"));
-          screen.appendScroll(COLORS.muted("  /queue /q    Show input queue\n"));
-          screen.appendScroll(COLORS.muted("  /undo        Remove last queued input\n"));
-          screen.appendScroll("\n");
-          screen.appendScroll(COLORS.primary.bold("Skill:\n"));
-          screen.appendScroll(COLORS.muted("  /skill list             List skills\n"));
-          screen.appendScroll(COLORS.muted("  /skill install <url>    Install skill package\n"));
-          screen.appendScroll(COLORS.muted("  /skill uninstall <name> Uninstall skill package\n"));
-          screen.appendScroll(COLORS.muted("  /skill add <name> [tpl] Add custom skill\n"));
-          screen.appendScroll(COLORS.muted("  /skill remove <name>    Remove skill\n"));
-          screen.appendScroll(COLORS.muted("  /skill edit <name> <tpl> Edit skill template\n"));
-          screen.appendScroll("\n");
-          screen.appendScroll(COLORS.primary.bold("MCP:\n"));
-          screen.appendScroll(COLORS.muted("  /mcp status     Show MCP status\n"));
-          screen.appendScroll(COLORS.muted("  /mcp init       Create example config\n"));
-          screen.appendScroll(COLORS.muted("  /mcp tools      List available tools\n"));
-          screen.appendScroll(COLORS.muted("  /mcp disconnect Disconnect all servers\n"));
-          screen.appendScroll("\n");
-          screen.appendScroll(COLORS.primary.bold("Ideas:\n"));
-          screen.appendScroll(COLORS.muted("  /idea <text>               Capture an idea\n"));
-          screen.appendScroll(COLORS.muted("  /idea (no args)            Enter idea workspace\n"));
-          screen.appendScroll(COLORS.muted("  /ideas                     List all ideas\n"));
-          screen.appendScroll(COLORS.muted("  /idea-done <id>            Mark idea done\n"));
-          screen.appendScroll(COLORS.muted("  /idea-open <id>            Re-open idea\n"));
-          screen.appendScroll(COLORS.muted("  /idea-delete <id>          Delete idea\n"));
-          screen.appendScroll("\n");
-          screen.appendScroll(COLORS.primary.bold("Subagents:\n"));
-          screen.appendScroll(COLORS.muted("  /subagents   View subagent history\n"));
-          screen.appendScroll(COLORS.muted("  /doctor     Environment check (tools, disk space)\n"));
-          screen.appendScroll(COLORS.muted("  /search <q>  Search archived sessions\n"));
-          screen.appendScroll(COLORS.muted("  /worktree [name]  List or create isolated worktree\n"));
-          screen.appendScroll("\n");
-          screen.appendScroll(COLORS.muted("  /status     Show status (messages, tokens, model, queue)\n"));
-          screen.appendScroll("\n");
-        };
+
 
         // 保持进程运行
         await new Promise<void>((resolve) => {

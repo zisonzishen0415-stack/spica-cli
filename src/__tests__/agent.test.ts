@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { SpicaAgent } from '../agent';
+import { generateErrorSuggestion } from '../core/errorPolicy';
 import { EventEmitter } from 'events';
 
 // Mock dependencies
@@ -143,7 +144,7 @@ describe('SpicaAgent', () => {
 
   describe('generateErrorSuggestion', () => {
     it('should suggest for ENOENT error', () => {
-      const suggestion = (agent as any).generateErrorSuggestion(
+      const suggestion = generateErrorSuggestion(
         'read',
         'ENOENT: no such file',
         { path: '/missing/file' }
@@ -152,7 +153,7 @@ describe('SpicaAgent', () => {
     });
 
     it('should suggest for EACCES error', () => {
-      const suggestion = (agent as any).generateErrorSuggestion(
+      const suggestion = generateErrorSuggestion(
         'read',
         'EACCES: permission denied',
         { path: '/protected/file' }
@@ -161,19 +162,19 @@ describe('SpicaAgent', () => {
     });
 
     it('should suggest for command not found', () => {
-      const suggestion = (agent as any).generateErrorSuggestion('bash', 'command not found: xyz', {
+      const suggestion = generateErrorSuggestion('bash', 'command not found: xyz', {
         command: 'xyz',
       });
       expect(suggestion).toContain('not found');
     });
 
     it('should provide generic suggestion for unknown errors', () => {
-      const suggestion = (agent as any).generateErrorSuggestion('unknown_tool', 'some error', {});
+      const suggestion = generateErrorSuggestion('unknown_tool', 'some error', {});
       expect(suggestion).toContain('failed');
     });
 
     it('should suggest for EACCES error', () => {
-      const suggestion = (agent as any).generateErrorSuggestion(
+      const suggestion = generateErrorSuggestion(
         'write',
         'EACCES: permission denied',
         { path: '/protected/file' }
@@ -182,14 +183,14 @@ describe('SpicaAgent', () => {
     });
 
     it('should suggest for command not found', () => {
-      const suggestion = (agent as any).generateErrorSuggestion('bash', 'command not found: xyz', {
+      const suggestion = generateErrorSuggestion('bash', 'command not found: xyz', {
         command: 'xyz',
       });
       expect(suggestion).toContain('not found');
     });
 
     it('should provide generic suggestion for unknown errors', () => {
-      const suggestion = (agent as any).generateErrorSuggestion('unknown_tool', 'some error', {});
+      const suggestion = generateErrorSuggestion('unknown_tool', 'some error', {});
       expect(suggestion).toContain('failed');
     });
   });
