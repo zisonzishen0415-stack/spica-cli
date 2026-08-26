@@ -636,6 +636,7 @@ export async function runInteractiveMode(
           screen.appendScroll("\n");
           screen.appendScroll(COLORS.primary.bold("Subagents:\n"));
           screen.appendScroll(COLORS.muted("  /subagents   View subagent history\n"));
+          screen.appendScroll(COLORS.muted("  /doctor     Environment check (tools, disk space)\n"));
           screen.appendScroll("\n");
           screen.appendScroll(COLORS.muted("  /status     Show status (messages, tokens, model, queue)\n"));
           screen.appendScroll("\n");

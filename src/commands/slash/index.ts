@@ -8,6 +8,7 @@ import { statusHandler } from './status';
 import { helpHandler, initHandler } from './help';
 import { subagentsHandler } from './subagents';
 import { ideaHandler } from './idea';
+import { doctorHandler } from './doctor';
 import { getSkill } from '../../skills';
 
 /**
@@ -113,6 +114,12 @@ export async function dispatchSlash(trimmed: string, ctx: SlashContext): Promise
   // /idea, /ideas, /idea-done, /idea-delete, /idea-open
   if (cmd === 'idea' || cmd === 'ideas' || cmd === 'idea-done' || cmd === 'idea-delete' || cmd === 'idea-open') {
     await ideaHandler(parts.slice(1).join(' '), ctx);
+    return true;
+  }
+
+  // /doctor — 环境预检（工具 + 磁盘）
+  if (cmd === 'doctor') {
+    await doctorHandler('', ctx);
     return true;
   }
 

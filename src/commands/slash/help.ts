@@ -44,6 +44,7 @@ export const helpHandler: SlashHandler = async (_args, ctx) => {
   ctx.screen.appendScroll('\n');
   ctx.screen.appendScroll(COLORS.primary.bold('Subagents:\n'));
   ctx.screen.appendScroll(COLORS.muted('  /subagents   View subagent history\n'));
+  ctx.screen.appendScroll(COLORS.muted("  /doctor     Environment check (tools, disk space)\n"));
   ctx.screen.appendScroll('\n');
   ctx.screen.appendScroll(COLORS.muted('  /status     Show status (messages, tokens, model, queue)\n'));
   ctx.screen.appendScroll('\n');

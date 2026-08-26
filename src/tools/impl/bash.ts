@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import { execa } from 'execa';
 import { resolve as pathResolve } from 'path';
 import { getBashPath, getBashOrFallback } from '../../utils/platform';
+import { detectShellType, translateBashToPowerShell, decodeOutput } from '../shellCompat';
 import { prepareSandbox } from '../sandbox';
 import {
   isWindows,
@@ -188,10 +189,22 @@ Write-Output $proc.Id;
     }
 
     // Use sandboxed command if sandbox was applied
-    const actualCommand = safeArgs._sandboxedCommand || command;
+    let actualCommand = safeArgs._sandboxedCommand || command;
 
     // 在 Windows 上优先使用 Git Bash（支持 head/grep/管道等 Unix 命令）
     const bashShellInfo = getBashOrFallback();
+
+    // ── Shell 兼容层（USER-PROBLEM-ANALYSIS A1）──────────────────────
+    // PowerShell fallback 模式下，bash 习语（2>/dev/null）会直接报错
+    // （Codex 实证: out-file 'D:\dev\null'）。自动翻译高频无歧义模式。
+    const shellCompatNotes: string[] = [];
+    if (detectShellType() === 'powershell') {
+      const translated = translateBashToPowerShell(actualCommand);
+      if (translated.translated) {
+        actualCommand = translated.command;
+        shellCompatNotes.push(...translated.notes);
+      }
+    }
 
     // 链接外部 abort signal（自动清理，防止 listener 累积）
     const externalSignal = safeArgs._abortSignal as AbortSignal | undefined;
@@ -214,6 +227,9 @@ Write-Output $proc.Id;
       reject: false,
       cancelSignal: abortController.signal,
       detached: !isWindows, // Windows: detached breaks stdout for external commands; Unix: process group for killProcessTree
+      // 拿原始字节自行解码：execa 默认 UTF-8 有损解码，GBK 输出（Windows
+      // 控制台代码页 936）会变成 U+FFFD 乱码（USER-PROBLEM-ANALYSIS A2）
+      encoding: 'buffer',
     });
 
     // Output-based stuck detection: timer resets on every stdout/stderr chunk
@@ -291,8 +307,16 @@ Write-Output $proc.Id;
           error: `Command timed out after ${timeout / 1000}s.${detachedHint}`,
         };
       }
-      // 合并stdout和stderr显示完整输出
-      const fullOutput = (bashResult.stdout + '\n' + bashResult.stderr).trim();
+      // 合并stdout和stderr显示完整输出（编码自适应解码）
+      const decode = (b: unknown): string => {
+        if (Buffer.isBuffer(b)) return decodeOutput(b);
+        if (b instanceof Uint8Array) return decodeOutput(Buffer.from(b));
+        return decodeOutput(Buffer.from(String(b ?? '')));
+      };
+      const fullOutput = (decode(bashResult.stdout) + '\n' + decode(bashResult.stderr)).trim();
+      const compatNote = shellCompatNotes.length
+        ? `\n[shell-compat] 已自动翻译 PowerShell 语法: ${shellCompatNotes.join('; ')}`
+        : '';
       // 截断超长输出（防止内存溢出）
       const truncateOutput = (text: string, maxLen: number): string => {
         if (text.length <= maxLen) return text;
@@ -316,8 +340,8 @@ Write-Output $proc.Id;
 
       return {
         success: bashResult.exitCode === 0,
-        output: bashResult.exitCode === 0 ? output + sandboxNote + sandboxTag : undefined,
-        error: bashResult.exitCode !== 0 ? output : undefined,
+        output: bashResult.exitCode === 0 ? output + compatNote + sandboxNote + sandboxTag : undefined,
+        error: bashResult.exitCode !== 0 ? output + compatNote : undefined,
       };
     } catch (bashError: any) {
       // 清除定时器
