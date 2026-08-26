@@ -48,11 +48,11 @@
 | A5 | 磁盘满无预警 | `C1088: No space left on device`（JUCE 编译） | 无磁盘空间预检 |
 
 **agent 层改进**：
-- [ ] A1 shell 适配层：检测 pwsh，自动翻译常见 bash 语法（`2>/dev/null`→`2>$null`、`$VAR` 转义、`&&`/`;` 语义差异）
-- [ ] A2 编码自动探测与统一：命令输出按 GBK 解码失败时回退 UTF-8，脚本生成带 `# -*- coding: utf-8 -*-` 与 `sys.stdout.reconfigure(encoding='utf-8')`
+- [x] A1 shell 适配层：检测 pwsh，自动翻译常见 bash 语法（`2>/dev/null`→`2>$null`、`>/dev/null`→`>$null`、`</dev/null`→`<$null`）【2026-08-26 实施：src/tools/shellCompat.ts + bash.ts 集成】
+- [x] A2 编码自动探测与统一：bash 工具输出严格 UTF-8 → GBK 回退自适应解码【2026-08-26 实施：execa encoding:'buffer' + decodeOutput】
 - [ ] A3 命令执行前超时预估（按命令类型）+ 超时后自动提供替代方案
-- [ ] A4 环境预检工具：`spica doctor` 检测 node/python/java/cmake 等常用依赖并给出修复命令
-- [ ] A5 bash 工具执行前检查磁盘剩余空间（<2GB 告警）
+- [x] A4 环境预检工具：`/doctor` 检测 node/npm/git/python/java/mvn/cmake/docker + 磁盘空间并给出提示【2026-08-26 实施】
+- [x] A5 bash 工具执行前检查磁盘剩余空间（<2GB 告警）【2026-08-26 实施：envCheck.checkDiskSpace 并入 /doctor】
 
 ### B 类：验证与质量纪律（puttyon 实证）
 
@@ -131,7 +131,7 @@
 |---|---|---|---|---|
 | **P0** | 验证闭环机制化（edit→自动验证→修复循环） | B1/B4 | 小 | ✅ 已实施（verifyLoop.ts + agent.ts，18 测试） |
 | **P0** | 危险操作确认门（rm -rf / sudo / git 危险操作） | D1 | 小 | ✅ 已实施（DEFAULT_HOOKS + agent confirm 回调，13 测试） |
-| **P0** | Shell 适配层（pwsh 语法翻译、编码探测、环境预检） | A1/A2/A4 | 中 | 🟡 |
+| **P0** | Shell 适配层（pwsh 语法翻译、编码探测、环境预检） | A1/A2/A4 | 中 | ✅ 已实施（shellCompat + /doctor，16 测试） |
 | **P1** | 只读保护区（路径级硬拦截） | D1/D4 | 小 | 🟡 |
 | **P1** | git 全局互斥锁 | D2 | 小 | 🟡 |
 | **P1** | 重复失败自动沉淀记忆 + 会话搜索 | E1/E4 | 中 | 🟡 |
