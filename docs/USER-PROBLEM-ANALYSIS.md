@@ -81,8 +81,8 @@
 | C5 | 修完再犯 | 7-30 与 8-14 两次审查高度重叠 |
 
 **agent 层改进**：
-- [ ] C1/C4 安全基线扫描器：检测写文件内容中的明文凭据模式（`password=`/`accessKey`/`api_key` 赋值）、`${VAR:默认值}` 兜底模式、无鉴权 Controller（P2）
-- [ ] C3 SSRF 模式识别：`RestTemplate`/`fetch` 直接请求用户可控 URL 且无白名单时告警（P2）
+- [x] C1/C4 安全基线扫描器：明文凭据/API key 字面量/SSRF/无鉴权写接口/CORS 五类模式，编辑后自动扫描注入循环 + security_scan 工具【2026-08-26 实施】
+- [x] C3 SSRF 模式识别：RestTemplate+变量 URL 启发式告警【2026-08-26 实施，并入 security_scan】
 
 ### D 类：数据与资产保护（jch / AAPS 实证）
 
@@ -108,9 +108,9 @@
 | E4 | 跨 session 无法检索 | 只有人工浏览，无搜索 |
 
 **agent 层改进**：
-- [ ] E1 **重复失败自动沉淀**：learnings 升级——同一工具/同一错误模式失败 ≥3 次自动提炼并写入 `.spica/learnings/`，新 session 自动注入（P1）
+- [x] E1 **重复失败自动沉淀**：同一 (工具, 错误类别) ≥3 次自动写入 learnings（8 类错误归一化），学习后重置计数【2026-08-26 实施】
 - [x] E4 **会话全文搜索**：`/search <query>` 检索全部存档 session（summary + user/assistant 消息，按命中数排序，带上下文片段）【2026-08-26 实施】
-- [ ] E3 领域知识 skill 包：纺织图像处理（ONNX 外部数据/值域/NCHW）、ERP 接入、二进制逆向各自 SKILL.md，按项目挂载（P2）
+- [x] E3 领域知识 skill 包：domains 包（textile-imaging 10 条/erp-integration 6 条/binary-reverse 5 条）【2026-08-26 实施】
 
 ### F 类：项目卫生（低优先级）
 
@@ -136,8 +136,8 @@
 | **P1** | git 全局互斥锁 | D2 | 小 | ✅ 已实施（gitLock，5 测试） |
 | **P1** | 重复失败自动沉淀记忆 + 会话搜索 | E1/E4 | 中 | 🟡 搜索 ✅ / 记忆 🟡 |
 | **P1** | 大文件截断 + 拆分提醒 | B5 | 小 | ✅ 已实施（file_read，6 测试） |
-| **P2** | 安全基线扫描（凭据/鉴权/SSRF） | C1-C5 | 中 | 🟡 |
-| **P2** | 领域知识 skill 包（纺织图像/ERP/逆向） | E3 | 中 | 🟡 |
+| **P2** | 安全基线扫描（凭据/鉴权/SSRF） | C1-C5 | 中 | ✅ 已实施（securityScan + security_scan 工具，12 测试） |
+| **P2** | 领域知识 skill 包（纺织图像/ERP/逆向） | E3 | 中 | ✅ 已实施（domains 包 3 技能） |
 | **P3** | eval 回放（golden session） | B4 长期 | 大 | 🟡 |
 
 **验收原则**：每项修复必须带 vitest 测试（沿用仓库现有 69 测试文件体系）；修复后更新本文档状态为 ✅。

@@ -95,3 +95,61 @@ export async function saveLearning(
     return false;
   }
 }
+
+// ── 重复失败自动沉淀（USER-PROBLEM-ANALYSIS E1）────────────────────────
+
+const ERROR_CATEGORIES: Array<{ pattern: RegExp; category: string }> = [
+  { pattern: /ENOENT|no such file/i, category: 'file-not-found' },
+  { pattern: /ECONNREFUSED|connection refused/i, category: 'connection-refused' },
+  { pattern: /UnicodeEncodeError|gbk|code page/i, category: 'gbk-encoding' },
+  { pattern: /timed out|timeout/i, category: 'timeout' },
+  { pattern: /command not found|not recognized/i, category: 'command-not-found' },
+  { pattern: /EACCES|permission denied/i, category: 'permission-denied' },
+  { pattern: /index\.lock/i, category: 'git-index-lock' },
+  { pattern: /EBUSY|resource busy/i, category: 'file-locked' },
+];
+
+/** 把错误消息归一化为类别（同一类别的不同消息共享计数）。 */
+export function categorizeError(error: string): string {
+  for (const { pattern, category } of ERROR_CATEGORIES) {
+    if (pattern.test(error)) return category;
+  }
+  return 'unknown';
+}
+
+const LEARN_THRESHOLD = 3;
+
+/**
+ * 记录一次工具失败。同一 (工具, 错误类别) 模式达到阈值（3 次）时，
+ * 自动把教训写入 .spica/learnings/ 并返回学习文本（否则返回 null）。
+ * 学习后重置该模式计数，避免重复写入。
+ */
+export async function recordFailureAndMaybeLearn(
+  workspacePath: string,
+  toolName: string,
+  error: string,
+  counters: Map<string, number>
+): Promise<string | null> {
+  const category = categorizeError(error);
+  const key = `${toolName}:${category}`;
+  const count = (counters.get(key) || 0) + 1;
+  counters.set(key, count);
+
+  if (count < LEARN_THRESHOLD) return null;
+
+  const text =
+    `工具 "${toolName}" 连续 ${count} 次因 "${category}" 失败（如: ${error.slice(0, 120)}）。\n` +
+    `后续遇到同类错误先检查：${category === 'connection-refused' ? '服务是否在运行、端口是否正确'
+      : category === 'file-not-found' ? '路径拼写、文件是否已创建'
+      : category === 'gbk-encoding' ? '输出编码（严格 UTF-8 → GBK 回退）'
+      : category === 'timeout' ? '命令是否需要 detached 或更长超时'
+      : category === 'command-not-found' ? '依赖是否安装、是否在 PATH（/doctor 可查）'
+      : category === 'permission-denied' ? '文件权限或是否需要确认门'
+      : category === 'git-index-lock' ? '是否有另一个 git 进程在运行（等待而非删锁）'
+      : category === 'file-locked' ? '文件句柄是否被其他进程占用（Windows EBUSY）'
+      : '错误详情与日志'}。`;
+
+  counters.set(key, 0); // 学习后重置，防止重复写入
+  await saveLearning(workspacePath, text);
+  return text;
+}

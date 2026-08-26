@@ -14,7 +14,7 @@ import {
   updateProjectTodos,
 } from './storage/projectState';
 import { runPreHooks, runPostHooks } from './hooks';
-import { isCorrection, saveLearning } from './core/learnings';
+import { isCorrection, saveLearning, recordFailureAndMaybeLearn } from './core/learnings';
 import { saveSession } from './utils/session';
 import { EventEmitter, setMaxListeners } from 'events';
 
@@ -208,6 +208,8 @@ export class SpicaAgent extends EventEmitter {
   private _roundCount: number = 0;
   /** Consecutive failed verify rounds — stops the loop at the streak limit. */
   private _verifyFailStreak: number = 0;
+  /** (tool:category) → 失败次数（P2-3 重复失败沉淀） */
+  private _failPatternCounters: Map<string, number> = new Map();
   /** User confirmation callback (P0-2 confirm gate) — set by the CLI (interactive mode). */
   private confirmCallback: ((message: string) => Promise<boolean>) | null = null;
   private static readonly SAVE_EVERY_N_ROUNDS = 5;
@@ -1023,6 +1025,18 @@ export class SpicaAgent extends EventEmitter {
 
                 // Record non-interrupt errors in ProgressTracker
                 this._progress.recordError(`${resolvedName}: ${(result.error || '').slice(0, 100)}`);
+
+                // P2-3 重复失败自动沉淀：同一 (工具, 错误类别) ≥3 次 → 写入 learnings
+                recordFailureAndMaybeLearn(
+                  this.workspacePath,
+                  resolvedName,
+                  result.error || '',
+                  this._failPatternCounters
+                ).then(learned => {
+                  if (learned) {
+                    this.emit('learning_detected', { source: 'repeated_failure', text: learned.slice(0, 100) });
+                  }
+                }).catch(() => {});
 
                 if (isCriticalToolError(resolvedName, result)) {
                   const suggestion = generateErrorSuggestion(
