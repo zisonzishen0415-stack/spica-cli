@@ -31,6 +31,12 @@ import {
   buildSummaryPrompt as _buildSummaryPrompt,
 } from './core/compression';
 import { ProgressTracker } from './core/progressTracker';
+import {
+  batchNeedsVerify,
+  detectVerifyCommand,
+  loadVerifyConfig,
+  runVerify,
+} from './core/verifyLoop';
 import { AgentStateMachine } from './core/AgentState';
 import { sessionStats } from './core/sessionStats';
 import { recordToolUsage } from './tools/analytics';
@@ -299,6 +305,8 @@ export class SpicaAgent extends EventEmitter {
   // No reflection hacks, no heuristic counters, no exceptions.
   // Periodic session save: persist every N tool rounds for crash resilience
   private _roundCount: number = 0;
+  /** Consecutive failed verify rounds — stops the loop at the streak limit. */
+  private _verifyFailStreak: number = 0;
   private static readonly SAVE_EVERY_N_ROUNDS = 5;
   // Unified state machine — replaces scattered _initialized/_compacting/pendingCancel
   private _stateMachine: AgentStateMachine = new AgentStateMachine();
@@ -1376,6 +1384,54 @@ export class SpicaAgent extends EventEmitter {
           }
 
           allToolResults.push(...toolResults);
+
+          // ── Verify loop (P0-1, USER-PROBLEM-ANALYSIS B1) ──────────────────
+          // After a batch containing successful edits, run the project
+          // verification command and feed the result back into the loop so the
+          // model fixes failures before reporting completion. This is a
+          // mechanism, not a prompt rule — "mvn test green before commit"
+          // must not depend on the model remembering it.
+          const verifyCfg = loadVerifyConfig(this.workspacePath);
+          if (
+            verifyCfg?.enabled !== false &&
+            !signal.aborted &&
+            batchNeedsVerify(toolResults) &&
+            this._verifyFailStreak < (verifyCfg?.maxFailStreak ?? 3)
+          ) {
+            const verifyCmd = verifyCfg?.command || detectVerifyCommand(this.workspacePath);
+            if (verifyCmd) {
+              this.emit('verify_start', { command: verifyCmd });
+              const verifyResult = await runVerify(
+                verifyCmd,
+                this.workspacePath,
+                verifyCfg?.timeoutMs ?? 60000
+              );
+              const verdict = verifyResult.success
+                ? `[VERIFY] PASS ${verifyCmd} (${verifyResult.durationMs}ms)`
+                : `[VERIFY] FAIL ${verifyCmd} (${verifyResult.durationMs}ms)`;
+              const verifyMsg = {
+                name: '__verify__',
+                id: `verify_${Date.now()}`,
+                result: `${verdict}\n${verifyResult.output}\n` +
+                  (verifyResult.success
+                    ? ''
+                    : 'Fix the reported issues before completing the task.'),
+              };
+              toolResults.push(verifyMsg);
+              allToolResults.push(verifyMsg);
+              if (verifyResult.success) {
+                this._verifyFailStreak = 0;
+                this.emit('verify_passed', { command: verifyCmd, durationMs: verifyResult.durationMs });
+              } else {
+                this._verifyFailStreak++;
+                this.emit('verify_failed', {
+                  command: verifyCmd,
+                  streak: this._verifyFailStreak,
+                  output: verifyResult.output.slice(0, 500),
+                });
+              }
+            }
+          }
 
           // Progress tracking: detect meaningful agent actions this round.
           // Broadens beyond file I/O — git commits, test runs, and package
