@@ -50,6 +50,18 @@ export async function runInteractiveMode(
           state.setCurrentBranch(null);
         }
 
+        // 开工位置检查：脏工作区 / index.lock / 并行 worktree（一次性横幅）
+        let startupGitWarnings: string[] = [];
+        try {
+          const { ensureCleanWorktree } = await import('../utils/gitState');
+          const check = await ensureCleanWorktree(agent.getWorkspacePath());
+          if (!check.ok && check.message) {
+            startupGitWarnings = check.message.split('\n');
+          }
+        } catch {
+          // 检查失败不阻塞启动
+        }
+
         // 停止banner动画
         BG.stopBanner();
         await bannerPromise;
@@ -66,6 +78,13 @@ export async function runInteractiveMode(
         screen.appendScroll(
           COLORS.muted('ESC ESC to interrupt, Ctrl+C ×3 to force exit\n'),
         );
+
+        // 开工位置警告（脏工作区等）——在横幅后展示
+        for (const w of startupGitWarnings) {
+          screen.appendScroll(w.startsWith('ℹ')
+            ? COLORS.secondary(w + '\n')
+            : COLORS.warning(w + '\n'));
+        }
 
         // 自动加载历史
         if (!options.fresh) {
