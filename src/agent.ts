@@ -307,6 +307,8 @@ export class SpicaAgent extends EventEmitter {
   private _roundCount: number = 0;
   /** Consecutive failed verify rounds — stops the loop at the streak limit. */
   private _verifyFailStreak: number = 0;
+  /** User confirmation callback (P0-2 confirm gate) — set by the CLI (interactive mode). */
+  private confirmCallback: ((message: string) => Promise<boolean>) | null = null;
   private static readonly SAVE_EVERY_N_ROUNDS = 5;
   // Unified state machine — replaces scattered _initialized/_compacting/pendingCancel
   private _stateMachine: AgentStateMachine = new AgentStateMachine();
@@ -476,6 +478,28 @@ export class SpicaAgent extends EventEmitter {
   // 设置队列输入回调（由 CLI 设置，用于在迭代间隙获取队列输入）
   setQueueInputCallback(callback: (() => string | null) | null): void {
     this.queueInputCallback = callback;
+  }
+
+  /**
+   * Set the user-confirmation callback (P0-2 confirm gate).
+   * Interactive mode registers a real prompt; non-interactive mode leaves it
+   * null so confirm hooks degrade to a safe block.
+   */
+  setConfirmCallback(callback: ((message: string) => Promise<boolean>) | null): void {
+    this.confirmCallback = callback;
+  }
+
+  /**
+   * Request user confirmation for a dangerous operation.
+   * Safe default: deny when no callback is registered (non-interactive).
+   */
+  private async requestConfirm(message: string): Promise<boolean> {
+    if (!this.confirmCallback) return false;
+    try {
+      return await this.confirmCallback(message);
+    } catch {
+      return false; // UI failure → deny by default
+    }
   }
 
   // 检查并获取队列输入
@@ -1207,6 +1231,26 @@ export class SpicaAgent extends EventEmitter {
 
               if (hookResult.action === 'warn') {
                 this.emit('hook_warning', { tool: tc.name, message: hookResult.message });
+              }
+
+              // P0-2 confirm gate: dangerous ops ask the user (interactive) or
+              // degrade to a safe block (non-interactive / simple mode).
+              if (hookResult.action === 'confirm') {
+                const allowed = await this.requestConfirm(hookResult.message);
+                if (!allowed) {
+                  this.emit('tool_result', {
+                    name: tc.name,
+                    success: false,
+                    error: `Rejected: ${hookResult.message}`,
+                  });
+                  this.emit('hook_blocked', { tool: tc.name, reason: hookResult.message });
+                  return {
+                    name: tc.name,
+                    id: tc.id,
+                    result: `Rejected: ${hookResult.message}`,
+                  };
+                }
+                this.emit('hook_confirmed', { tool: tc.name, message: hookResult.message });
               }
             }
 

@@ -83,8 +83,36 @@ function loadGlobalSettingsSync(): {
   return {};
 }
 
+/**
+ * Full wildcard matching: `*` matches any prefix/suffix/both.
+ * - "*abc*" → value includes "abc"
+ * - "*abc"  → value ends with "abc"
+ * - "abc*"  → value starts with "abc"
+ * - "abc"   → exact match
+ * - "*"     → matches everything
+ * - `\*`     → literal asterisk (e.g. "*rm -rf /\*" ends with "rm -rf /*")
+ *
+ * Replaces the old replace('*','') logic, which only handled a leading
+ * wildcard and silently turned "*sudo*" into the literal "sudo*" —
+ * the previous --force/rm -rf /* default hooks never actually matched.
+ */
+export function matchesPattern(value: string, pattern: string): boolean {
+  if (pattern === '*') return true;
+  const leading = pattern.startsWith('*');
+  // Trailing wildcard only when the last char is `*` and NOT escaped (`\*`).
+  const trailing = pattern.endsWith('*') && !pattern.endsWith('\\*');
+  let core = pattern;
+  if (leading) core = core.slice(1);
+  if (trailing) core = core.slice(0, -1);
+  core = core.replace(/\\\*/g, '*'); // unescape literal asterisks
+  if (leading && trailing) return core === '' || value.includes(core);
+  if (leading) return value.endsWith(core);
+  if (trailing) return value.startsWith(core);
+  return value === core;
+}
+
 // 检查匹配
-function matchesMatcher(
+export function matchesMatcher(
   toolName: string,
   args: Record<string, unknown>,
   matcher: HookMatcher
@@ -92,25 +120,14 @@ function matchesMatcher(
   // 检查工具名匹配
   if (matcher.tool) {
     const toolPattern = matcher.tool || '';
-    if (toolPattern.includes('*')) {
-      const pattern = toolPattern.replace('*', '');
-      if (!toolName.includes(pattern)) return false;
-    } else {
-      if (toolName !== toolPattern) return false;
-    }
+    if (!matchesPattern(toolName, toolPattern)) return false;
   }
 
   // 检查参数匹配
   if (matcher.args) {
     for (const [key, pattern] of Object.entries(matcher.args)) {
       const value = String(args[key] || '');
-      const patternStr = String(pattern || '');
-      if (patternStr.includes('*')) {
-        const prefix = patternStr.replace('*', '');
-        if (!value.includes(prefix)) return false;
-      } else {
-        if (value !== patternStr) return false;
-      }
+      if (!matchesPattern(value, String(pattern || ''))) return false;
     }
   }
 

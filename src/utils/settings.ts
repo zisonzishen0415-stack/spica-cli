@@ -112,17 +112,49 @@ export const DEFAULT_BASE_URLS: Record<string, string> = {};
 const DEFAULT_MODELS: Record<string, string> = {};
 
 // 默认安全 hooks（运行时使用，不写入配置文件）
-const DEFAULT_HOOKS: Settings['hooks'] = {
+// 顺序敏感：confirm 规则必须在更宽泛的 block 规则之前匹配。
+// P0-2 确认门：危险操作走 confirm（用户确认），根目录删除/--force 走硬 block。
+export const DEFAULT_HOOKS: Settings['hooks'] = {
   PreToolUse: [
+    {
+      matcher: { tool: 'bash', args: { command: '*rm -rf / *' } },
+      action: 'block',
+      message: '禁止删除根目录',
+    },
+    {
+      matcher: { tool: 'bash', args: { command: '*rm -rf /\\*' } },
+      action: 'block',
+      message: '禁止删除根目录',
+    },
+    {
+      matcher: { tool: 'bash', args: { command: '*rm -rf /' } },
+      action: 'block',
+      message: '禁止删除根目录',
+    },
+    {
+      matcher: { tool: 'bash', args: { command: '*git push --force*' } },
+      action: 'confirm',
+      message: 'git push --force 会覆盖远端历史，确认继续？(y/n)',
+    },
+    {
+      matcher: { tool: 'bash', args: { command: '*git reset --hard*' } },
+      action: 'confirm',
+      message: 'git reset --hard 会丢弃本地未提交改动，确认继续？(y/n)',
+    },
+    {
+      matcher: { tool: 'bash', args: { command: '*sudo*' } },
+      action: 'confirm',
+      message: 'sudo 命令需要管理员权限，确认继续？(y/n)',
+    },
+    {
+      matcher: { tool: 'bash', args: { command: '*rm -rf*' } },
+      action: 'confirm',
+      message: 'rm -rf 删除操作不可恢复，确认继续？(y/n)',
+    },
     {
       matcher: { tool: 'bash', args: { command: '*--force*' } },
       action: 'block',
       message: '禁止使用 --force 参数',
-    },
-    {
-      matcher: { tool: 'bash', args: { command: '*rm -rf /*' } },
-      action: 'block',
-      message: '禁止删除根目录',
     },
   ],
 };

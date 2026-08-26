@@ -211,6 +211,9 @@ export async function runInteractiveMode(
         let isProcessing = false;
         let shouldExit = false;
 
+        // P0-2 confirm gate: pending user confirmation for a dangerous op.
+        let pendingConfirm: { resolve: (ok: boolean) => void } | null = null;
+
         // stdin 监听 - 使用 TUIInputHandler
         process.stdin.on("data", (chunk: Buffer) => {
           const result = tuiHandler!.handleStdin(
@@ -218,8 +221,29 @@ export async function runInteractiveMode(
             false,
           );
 
+          // P0-2: 危险操作确认——输入优先于普通处理
+          if (pendingConfirm && result.shouldProcess && result.content.trim()) {
+            const answer = result.content.trim().toLowerCase();
+            const ok = answer === "y" || answer === "yes";
+            pendingConfirm.resolve(ok);
+            pendingConfirm = null;
+            screen.appendScroll(
+              ok ? COLORS.success("  [已允许]\n") : COLORS.warning("  [已拒绝]\n")
+            );
+            screen.refreshInput();
+            screen.restoreCursor();
+            return;
+          }
+
           // ESC ESC 中断
           if (result.isInterrupt) {
+            // 确认等待中：中断视为拒绝，避免 Promise 悬挂
+            if (pendingConfirm) {
+              pendingConfirm.resolve(false);
+              pendingConfirm = null;
+              screen.appendScroll(COLORS.warning("  [已拒绝（中断）]\n"));
+              return;
+            }
             if (state.getAgent()) {
               state.getAgent()!.interrupt();
               // agent_interrupted 事件会显示消息并清理 UI
@@ -251,6 +275,18 @@ export async function runInteractiveMode(
 
         // 设置agent事件监听
         setupAgentEvents(agent, true, providerConfig!.model, tokenCounter);
+
+        // P0-2 confirm gate: 注册确认回调——危险操作暂停询问用户
+        agent.setConfirmCallback((message: string) => {
+          return new Promise<boolean>((resolve) => {
+            screen.appendScroll(
+              COLORS.warning(`\n[CONFIRM] ${message}\n  (输入 y 允许，其他任意键拒绝)\n`)
+            );
+            pendingConfirm = { resolve };
+            screen.refreshInput();
+            screen.restoreCursor();
+          });
+        });
 
         // TUI 输出辅助函数（已简化）
 
