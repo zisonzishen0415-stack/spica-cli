@@ -67,7 +67,7 @@
 **agent 层改进**：
 - [x] B1 **验证闭环机制化**：edit/write 后自动跑项目验证命令（自动探测 package.json lint/test、mvn test），失败结果注入循环修复，连续失败 3 轮停止（P0）【2026-08-26 实施：src/core/verifyLoop.ts + agent.ts 集成，18 个测试全绿】
 - [x] B3 **代码质量门**：提交/会话结束前扫描空 catch、`any` 滥用、console.log 残留、>800 行文件，生成报告（P1）【附带修复：matchesMatcher 通配符 bug——`*sudo*` 旧逻辑只替换第一个星号导致默认 hook 从未生效】
-- [ ] B5 **大文件截断**：read 超 2000 行自动截断 + offset/limit 提示；>800 行文件编辑时提醒拆分（P1）
+- [x] B5 **大文件截断**：read 超 2000 行自动截断 + offset/limit 提示【2026-08-26 实施】
 - [ ] B2 测试建议：新功能完成后提示"此改动缺少测试"，提供测试模板（P2）
 
 ### C 类：安全（两次审计实证）
@@ -95,7 +95,7 @@
 
 **agent 层改进**：
 - [x] D1 **只读保护区**：`.spica/settings.json` 配置 `readonlyPaths`（如 `samples/`、`*.JCH`），写工具硬拦截（P0）【2026-08-26 实施：DEFAULT_HOOKS 危险命令确认门——sudo/rm -rf/git push --force/git reset --hard 走 confirm，交互模式用户确认、非交互降级拒绝；修复 matchesMatcher 单星号 bug（旧 hook 从未生效）】
-- [ ] D2 **git 全局互斥锁**：agent 内所有 git 操作串行 + 锁文件等待机制，遇 index.lock 自动等待而非删锁（P1）
+- [x] D2 **git 全局互斥锁**：agent 内 git 写操作串行 + index.lock 等待（绝不删锁）【2026-08-26 实施】
 - [ ] D3 外部 schema 引用纪律：访问外部系统字段前先读权威映射文档，禁止直接猜字段名（P2，可用 skill 约束）
 
 ### E 类：记忆与上下文（所有项目实证）
@@ -109,7 +109,7 @@
 
 **agent 层改进**：
 - [ ] E1 **重复失败自动沉淀**：learnings 升级——同一工具/同一错误模式失败 ≥3 次自动提炼并写入 `.spica/learnings/`，新 session 自动注入（P1）
-- [ ] E4 **会话全文搜索**：`spica search <query>` 检索全部存档 session（P1）
+- [x] E4 **会话全文搜索**：`/search <query>` 检索全部存档 session（summary + user/assistant 消息，按命中数排序，带上下文片段）【2026-08-26 实施】
 - [ ] E3 领域知识 skill 包：纺织图像处理（ONNX 外部数据/值域/NCHW）、ERP 接入、二进制逆向各自 SKILL.md，按项目挂载（P2）
 
 ### F 类：项目卫生（低优先级）
@@ -132,10 +132,10 @@
 | **P0** | 验证闭环机制化（edit→自动验证→修复循环） | B1/B4 | 小 | ✅ 已实施（verifyLoop.ts + agent.ts，18 测试） |
 | **P0** | 危险操作确认门（rm -rf / sudo / git 危险操作） | D1 | 小 | ✅ 已实施（DEFAULT_HOOKS + agent confirm 回调，13 测试） |
 | **P0** | Shell 适配层（pwsh 语法翻译、编码探测、环境预检） | A1/A2/A4 | 中 | ✅ 已实施（shellCompat + /doctor，16 测试） |
-| **P1** | 只读保护区（路径级硬拦截） | D1/D4 | 小 | 🟡 |
-| **P1** | git 全局互斥锁 | D2 | 小 | 🟡 |
-| **P1** | 重复失败自动沉淀记忆 + 会话搜索 | E1/E4 | 中 | 🟡 |
-| **P1** | 大文件截断 + 拆分提醒 | B5 | 小 | 🟡 |
+| **P1** | 只读保护区（路径级硬拦截） | D1/D4 | 小 | ✅ 已实施（readonlyGuard，11 测试） |
+| **P1** | git 全局互斥锁 | D2 | 小 | ✅ 已实施（gitLock，5 测试） |
+| **P1** | 重复失败自动沉淀记忆 + 会话搜索 | E1/E4 | 中 | 🟡 搜索 ✅ / 记忆 🟡 |
+| **P1** | 大文件截断 + 拆分提醒 | B5 | 小 | ✅ 已实施（file_read，6 测试） |
 | **P2** | 安全基线扫描（凭据/鉴权/SSRF） | C1-C5 | 中 | 🟡 |
 | **P2** | 领域知识 skill 包（纺织图像/ERP/逆向） | E3 | 中 | 🟡 |
 | **P3** | eval 回放（golden session） | B4 长期 | 大 | 🟡 |

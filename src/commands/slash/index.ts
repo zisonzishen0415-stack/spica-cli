@@ -9,6 +9,7 @@ import { helpHandler, initHandler } from './help';
 import { subagentsHandler } from './subagents';
 import { ideaHandler } from './idea';
 import { doctorHandler } from './doctor';
+import { searchHandler } from './search';
 import { getSkill } from '../../skills';
 
 /**
@@ -120,6 +121,12 @@ export async function dispatchSlash(trimmed: string, ctx: SlashContext): Promise
   // /doctor — 环境预检（工具 + 磁盘）
   if (cmd === 'doctor') {
     await doctorHandler('', ctx);
+    return true;
+  }
+
+  // /search <query> — 跨存档会话搜索
+  if (cmd === 'search') {
+    await searchHandler(parts.slice(1).join(' '), ctx);
     return true;
   }
 
