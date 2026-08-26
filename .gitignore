@@ -6,3 +6,4 @@ dist/
 .env
 .env.local
 test-compress.txt
+test-monitor-temp/
