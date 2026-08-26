@@ -657,6 +657,7 @@ export async function runInteractiveMode(
           screen.appendScroll(COLORS.muted("  /subagents   View subagent history\n"));
           screen.appendScroll(COLORS.muted("  /doctor     Environment check (tools, disk space)\n"));
           screen.appendScroll(COLORS.muted("  /search <q>  Search archived sessions\n"));
+          screen.appendScroll(COLORS.muted("  /worktree [name]  List or create isolated worktree\n"));
           screen.appendScroll("\n");
           screen.appendScroll(COLORS.muted("  /status     Show status (messages, tokens, model, queue)\n"));
           screen.appendScroll("\n");

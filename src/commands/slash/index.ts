@@ -10,6 +10,7 @@ import { subagentsHandler } from './subagents';
 import { ideaHandler } from './idea';
 import { doctorHandler } from './doctor';
 import { searchHandler } from './search';
+import { worktreeHandler } from './worktree';
 import { getSkill } from '../../skills';
 
 /**
@@ -127,6 +128,12 @@ export async function dispatchSlash(trimmed: string, ctx: SlashContext): Promise
   // /search <query> — 跨存档会话搜索
   if (cmd === 'search') {
     await searchHandler(parts.slice(1).join(' '), ctx);
+    return true;
+  }
+
+  // /worktree — 多 agent 并行隔离工作区
+  if (cmd === 'worktree') {
+    await worktreeHandler(parts.slice(1).join(' '), ctx);
     return true;
   }
 

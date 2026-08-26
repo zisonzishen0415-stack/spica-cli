@@ -46,6 +46,7 @@ export const helpHandler: SlashHandler = async (_args, ctx) => {
   ctx.screen.appendScroll(COLORS.muted('  /subagents   View subagent history\n'));
   ctx.screen.appendScroll(COLORS.muted("  /doctor     Environment check (tools, disk space)\n"));
   ctx.screen.appendScroll(COLORS.muted("  /search <q>  Search archived sessions\n"));
+  ctx.screen.appendScroll(COLORS.muted("  /worktree [name]  List or create isolated worktree\n"));
   ctx.screen.appendScroll('\n');
   ctx.screen.appendScroll(COLORS.muted('  /status     Show status (messages, tokens, model, queue)\n'));
   ctx.screen.appendScroll('\n');
