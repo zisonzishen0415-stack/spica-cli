@@ -1,15 +1,32 @@
 import simpleGit from 'simple-git';
 import { execa } from 'execa';
 import { WORKSPACE } from '../helpers';
+import { withGitLock, waitForIndexLock } from '../gitLock';
 import type { ToolResult } from '../helpers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+// 写操作（会触碰 .git/index）——需要互斥 + index.lock 等待
+const INDEX_TOUCHING_ACTIONS = new Set([
+  'add', 'commit', 'push', 'pull', 'reset', 'checkout', 'branch',
+  'stash', 'stash_pop', 'merge', 'rebase', 'tag',
+]);
+
 export async function executeGit(safeArgs: Record<string, any>): Promise<ToolResult> {
-  const git = simpleGit(WORKSPACE);
   const action = safeArgs.action as string;
   const args = safeArgs.args || {};
 
-  switch (action) {
+  // P1-2 互斥锁：写操作串行 + 等待外部 index.lock 释放（绝不删锁）
+  const lockWait = INDEX_TOUCHING_ACTIONS.has(action)
+    ? await waitForIndexLock(WORKSPACE)
+    : { ok: true };
+  if (!lockWait.ok) {
+    return { success: false, error: lockWait.error };
+  }
+
+  return withGitLock(async () => {
+    const git = simpleGit(WORKSPACE);
+
+    switch (action) {
     case 'status': {
       const status = await git.status();
       return {
@@ -141,5 +158,6 @@ export async function executeGit(safeArgs: Record<string, any>): Promise<ToolRes
     }
     default:
       return { success: false, error: `Unknown git action: ${action}` };
-  }
+    }
+  });
 }
