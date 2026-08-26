@@ -51,6 +51,7 @@ import { executeLint, executeTest } from './impl/lint_test';
 import { executeBash, executeMonitor, executeTaskStop } from './impl/bash';
 import { executeGit } from './impl/git';
 import { executeGh } from './impl/gh';
+import { assertWritable } from './readonlyGuard';
 
 export async function executeTool(
   name: string,
@@ -68,6 +69,28 @@ export async function executeTool(
     'file_edit': 'edit',
   };
   name = TOOL_ALIASES[name] || name;
+
+  // ── 只读保护区守卫（USER-PROBLEM-ANALYSIS D1）────────────────────
+  // jch 污染教训：真实素材目录必须机制级只读。写工具执行前统一拦截。
+  const WRITE_PATH_TOOLS: Record<string, (a: Record<string, any>) => string | null> = {
+    write: a => a.path,
+    edit: a => a.path,
+    file_multi_edit: a => a.path,
+    file_patch: a => a.path || a.file,
+    file_replace: a => a.path || a.file_path,
+    file_insert: a => a.path,
+    file_delete: a => a.path,
+    file_copy: a => a.source || a.from || a.path,
+    file_move: a => a.source || a.from || a.path,
+    directory_create: a => a.path,
+  };
+  const guardTarget = WRITE_PATH_TOOLS[name]?.(safeArgs);
+  if (guardTarget) {
+    const reason = assertWritable(getWorkspace(), guardTarget);
+    if (reason) {
+      return { success: false, error: reason };
+    }
+  }
 
   // Check read-only cache before execution
   const cached = getCachedResult(name, safeArgs);
