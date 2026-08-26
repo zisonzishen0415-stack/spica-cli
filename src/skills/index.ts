@@ -21,23 +21,22 @@ export interface SkillPackageInfo {
   skills: string[];
 }
 
-// 初始化：首次运行时复制默认包到用户目录（不覆盖已有）
+// 初始化：把默认包复制到用户目录（增量——已有技能不覆盖，新技能补齐）
 export async function initSkills(): Promise<void> {
-  if (!fs.existsSync(SKILLS_DIR)) {
-    await fs.ensureDir(SKILLS_DIR);
+  await fs.ensureDir(SKILLS_DIR);
 
-    // 复制默认包（如 superpowers）
-    if (fs.existsSync(DEFAULT_PACKAGE_DIR)) {
-      const packages = fs.readdirSync(DEFAULT_PACKAGE_DIR).filter(d => {
-        const fullPath = join(DEFAULT_PACKAGE_DIR, d);
-        return fs.statSync(fullPath).isDirectory() && !d.startsWith('_') && !d.startsWith('.');
-      });
+  // 复制默认包（如 superpowers、domains）
+  if (fs.existsSync(DEFAULT_PACKAGE_DIR)) {
+    const packages = fs.readdirSync(DEFAULT_PACKAGE_DIR).filter(d => {
+      const fullPath = join(DEFAULT_PACKAGE_DIR, d);
+      return fs.statSync(fullPath).isDirectory() && !d.startsWith('_') && !d.startsWith('.');
+    });
 
-      for (const pkgName of packages) {
-        const srcDir = join(DEFAULT_PACKAGE_DIR, pkgName);
-        const destDir = join(SKILLS_DIR, pkgName);
-        await fs.copy(srcDir, destDir, { overwrite: false }); // 不覆盖已有
-      }
+    for (const pkgName of packages) {
+      const srcDir = join(DEFAULT_PACKAGE_DIR, pkgName);
+      const destDir = join(SKILLS_DIR, pkgName);
+      // overwrite: false → 已有技能文件不覆盖（用户可能改过），缺失技能补齐
+      await fs.copy(srcDir, destDir, { overwrite: false });
     }
   }
 }
