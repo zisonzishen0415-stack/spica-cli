@@ -34,6 +34,8 @@ import { ProgressTracker } from './core/progressTracker';
 import { resolveAlias, detectToolConflicts } from './tools/conflictDetector';
 import { isRetryableError, isCriticalToolError, generateErrorSuggestion } from './core/errorPolicy';
 import { callLLMWithRetry } from './core/llmRetry';
+import { scanFile } from './tools/securityScan';
+import { isAbsolute as pathIsAbsolute, join as pathJoin } from 'path';
 import {
   batchNeedsVerify,
   detectVerifyCommand,
@@ -1197,6 +1199,45 @@ export class SpicaAgent extends EventEmitter {
                   streak: this._verifyFailStreak,
                   output: verifyResult.output.slice(0, 500),
                 });
+              }
+            }
+          }
+
+          // ── Security baseline scan (P2-1, USER-PROBLEM-ANALYSIS C1-C5) ────
+          // After edits, scan the touched files for the vulnerability classes
+          // that survived two audits in puttyon: plaintext credentials, API
+          // key literals, SSRF, unauthenticated writes, open CORS. Findings
+          // feed back into the loop so the model fixes them immediately.
+          if (!signal.aborted) {
+            // 从本轮 toolCalls 提取编辑过的文件路径
+            const editedPaths: string[] = [];
+            for (const tc of response.toolCalls || []) {
+              const resolved = resolveAlias(tc.name);
+              if (['write', 'edit', 'file_multi_edit', 'file_patch'].includes(resolved)) {
+                const p = (tc.arguments as Record<string, unknown>)?.path as string | undefined;
+                if (p) editedPaths.push(p);
+              }
+            }
+            if (editedPaths.length > 0) {
+              const scanIssues: Array<{ file: string; line: number; severity: string; message: string }> = [];
+              for (const p of editedPaths.slice(0, 5)) {
+                const abs = pathIsAbsolute(p) ? p : pathJoin(this.workspacePath, p);
+                const issues = await scanFile(abs);
+                for (const i of issues) scanIssues.push({ file: p, line: i.line, severity: i.severity, message: i.message });
+              }
+              if (scanIssues.length > 0) {
+                const criticals = scanIssues.filter(i => i.severity === 'critical').length;
+                const secMsg = {
+                  name: '__security__',
+                  id: `sec_${Date.now()}`,
+                  result:
+                    `[SECURITY SCAN] ${scanIssues.length} violations (${criticals} critical) in edited files:\n` +
+                    scanIssues.slice(0, 10).map(i => `  ${i.severity.toUpperCase()} ${i.file}:${i.line} ${i.message}`).join('\n') +
+                    '\nFix critical issues before completing the task.',
+                };
+                toolResults.push(secMsg);
+                allToolResults.push(secMsg);
+                this.emit('security_findings', { count: scanIssues.length, criticals });
               }
             }
           }

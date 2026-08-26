@@ -699,6 +699,19 @@ export const TOOLS_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: 'security_scan',
+    batchHint: 'read' as const,
+    description:
+      'Scan file(s) for security baseline violations: hardcoded credentials, API key literals, SSRF (RestTemplate with user-controlled URL), unauthenticated write endpoints, open CORS. Run after writing config/controller/service code.',
+    parameters: {
+      type: 'object' as const,
+      properties: {
+        path: { type: 'string', description: 'File or directory to scan' },
+      },
+      required: ['path'],
+    },
+  },
+  {
     name: 'test_quality_check',
     batchHint: 'read' as const,
     description:

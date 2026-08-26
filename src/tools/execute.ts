@@ -52,6 +52,7 @@ import { executeBash, executeMonitor, executeTaskStop } from './impl/bash';
 import { executeGit } from './impl/git';
 import { executeGh } from './impl/gh';
 import { assertWritable } from './readonlyGuard';
+import { scanFile } from './securityScan';
 
 export async function executeTool(
   name: string,
@@ -592,6 +593,42 @@ export async function executeTool(
         } catch (testError: unknown) {
           const errorMsg = testError instanceof Error ? testError.message : String(testError);
           return { success: false, error: `Test quality analysis failed: ${errorMsg}` };
+        }
+      }
+
+      case 'security_scan': {
+        const target = resolvePath(safeArgs.path);
+        try {
+          const isDir = fs.statSync(target).isDirectory();
+          const files = isDir
+            ? (await import('fast-glob')).default.sync('**/*.{ts,tsx,js,java,kt,py,yml,yaml,json}', {
+                cwd: target,
+                ignore: ['node_modules/**', 'dist/**', '.venv/**', '.git/**', 'build/**'],
+                absolute: false,
+              }).map(f => join(target, f))
+            : [target];
+          const allIssues: Array<{ file: string } & import('./securityScan').SecurityIssue> = [];
+          for (const f of files.slice(0, 50)) {
+            const issues = await scanFile(f);
+            for (const i of issues) allIssues.push({ file: f, ...i });
+          }
+          if (allIssues.length === 0) {
+            return { success: true, output: 'Security scan: no violations found' };
+          }
+          const criticals = allIssues.filter(i => i.severity === 'critical').length;
+          const lines = allIssues.map(i =>
+            `[${i.severity.toUpperCase()}] ${i.file}:${i.line} ${i.message}`
+          );
+          return {
+            success: true,
+            output:
+              `Security scan: ${allIssues.length} violations (${criticals} critical)\n` +
+              lines.slice(0, 30).join('\n') +
+              (lines.length > 30 ? `\n... ${lines.length - 30} more` : ''),
+          };
+        } catch (scanError: unknown) {
+          const errorMsg = scanError instanceof Error ? scanError.message : String(scanError);
+          return { success: false, error: `Security scan failed: ${errorMsg}` };
         }
       }
 
